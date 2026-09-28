@@ -135,8 +135,13 @@ button { cursor: pointer; }
 .app-actions button { border: 0; border-radius: 12px; background: white; color: #007aff; padding: 12px 8px; }
 .app-actions .danger { color: #d70015; }
 
-.mode-picker { display: flex; gap: 8px; margin: 12px 0 4px; }
-.mode-picker label { flex: 1; padding: 10px; text-align: center; background: #f2f2f7; border-radius: 10px; }
+ .waypoint-list { margin-top: 2px; }
+.waypoint-row { border-top: 1px solid #ececef; }
+.waypoint-control { display: flex; align-items: center; gap: 8px; }
+.waypoint-control input { min-width: 0; flex: 1; }
+.remove-waypoint { width: 28px; height: 28px; border: 0; border-radius: 50%; background: #f2f2f7; color: #8e8e93; font-size: 22px; line-height: 24px; }
+.remove-waypoint:disabled { opacity: .35; cursor: default; }
+.add-waypoint { margin-top: 12px; color: #007aff; }
 
 .tabbar {
   position: absolute;
@@ -171,10 +176,6 @@ button { cursor: pointer; }
 .display-settings-card { padding: 4px 14px 14px; }
 .display-setting-actions { display: flex; justify-content: flex-end; padding: 10px 0 2px; }
 .secondary.compact { width: auto; margin: 0; padding: 8px 12px; color: #007aff; }
-.heading-field { border-top: 1px solid #ececef; margin-top: 8px; }
-.heading-field span { display: flex; justify-content: space-between; align-items: center; }
-.heading-field output { color: #007aff; font-size: 13px; }
-.heading-field input[type="range"] { padding: 11px 0 5px; accent-color: #007aff; }
 .avatar-hint { margin: 18px 2px 0; }
 .avatar-card { text-align: center; padding: 22px 18px; }
 .avatar-card img { width: 112px; height: 112px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 20px; background: #e5e5ea; }
