@@ -1,4 +1,4 @@
-const { app, BrowserWindow, WebContentsView, desktopCapturer, ipcMain, shell, session } = require('electron');
+const { app, BrowserWindow, WebContentsView, Notification, desktopCapturer, ipcMain, screen, shell, session } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -436,6 +436,39 @@ async function runSmokeCapture() {
   }, 22000);
 }
 
+async function captureCurrentPage() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const bounds = mainWindow.getBounds();
+  const scaleFactor = screen.getDisplayMatching(bounds).scaleFactor || 1;
+  const sources = await desktopCapturer.getSources({
+    types: ['window'],
+    thumbnailSize: {
+      width: Math.round(bounds.width * scaleFactor),
+      height: Math.round(bounds.height * scaleFactor),
+    },
+  });
+  const windowTitle = mainWindow.getTitle();
+  const source = sources.find((item) => item.name === windowTitle)
+    || sources.find((item) => item.name.includes('MeiMap'));
+  if (!source || source.thumbnail.isEmpty()) throw new Error('无法捕获 MeiMap 窗口');
+
+  const now = new Date();
+  const stamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+    '-',
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+    String(now.getSeconds()).padStart(2, '0'),
+  ].join('');
+  const fileName = `MeiMap-${stamp}.png`;
+  fs.writeFileSync(path.join(app.getPath('desktop'), fileName), source.thumbnail.toPNG());
+  if (Notification.isSupported()) {
+    new Notification({ title: 'MeiMap 截图已保存', body: `桌面\\${fileName}` }).show();
+  }
+}
+
 function setScreen(screenName) {
   currentScreen = screenName;
   mapView.setVisible(screenName === 'map');
@@ -596,6 +629,11 @@ ipcMain.on('window-close', () => mainWindow?.close());
 app.on('web-contents-created', (_event, contents) => {
   contents.on('before-input-event', (event, input) => {
     if (!input.control) return;
+    if (input.shift && input.key.toLowerCase() === 's') {
+      event.preventDefault();
+      captureCurrentPage().catch((error) => console.error('Screenshot failed:', error));
+      return;
+    }
     if (input.key.toLowerCase() === 'q') {
       event.preventDefault();
       mainWindow?.close();
