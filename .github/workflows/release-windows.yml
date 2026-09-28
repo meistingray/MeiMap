@@ -1,0 +1,41 @@
+name: Release MeiMap v0.1.0
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/release-windows.yml
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check main process syntax
+        run: node --check src/main.cjs
+
+      - name: Build portable executable
+        run: npm run dist
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $asset = Get-ChildItem -Path dist -Filter *.exe | Select-Object -First 1
+          if (-not $asset) { throw "Portable EXE was not generated." }
+          gh release create v0.1.0 "$($asset.FullName)" --target $env:GITHUB_SHA --title "MeiMap v0.1.0" --notes "首个个人使用版：支持自定义地图位置、驾车路线与最多三个途经点、时间和头像显示设置、完整窗口截图及自定义截图保存目录。" --latest
