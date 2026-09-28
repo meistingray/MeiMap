@@ -141,7 +141,7 @@ button { cursor: pointer; }
 .waypoint-control input { min-width: 0; flex: 1; }
 .remove-waypoint { width: 28px; height: 28px; border: 0; border-radius: 50%; background: #f2f2f7; color: #8e8e93; font-size: 22px; line-height: 24px; }
 .remove-waypoint:disabled { opacity: .35; cursor: default; }
-.add-waypoint { margin-top: 12px; color: #007aff; }
+.secondary.add-waypoint { margin-top: 12px; color: #007aff; }
 
 .tabbar {
   position: absolute;
