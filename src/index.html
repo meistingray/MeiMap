@@ -56,17 +56,16 @@
           <h1>路线</h1>
           <span></span>
         </div>
-        <p class="hint">起点是设置中的位置。目的地可输入地址、地点名或经纬度。</p>
+        <p class="hint">起点是设置中的位置。固定使用驾车路线，可添加最多 3 个途经点。提交后只显示路线。</p>
         <form id="route-form" class="card">
           <label class="stacked">
             <span>目的地</span>
             <input id="destination" autocomplete="off" placeholder="例如：香港国际机场" required />
           </label>
-          <div class="mode-picker" role="group" aria-label="出行方式">
-            <label><input type="radio" name="mode" value="driving" checked /> 驾车</label>
-            <label><input type="radio" name="mode" value="walking" /> 步行</label>
-          </div>
-          <button class="primary" type="submit">在 Google Maps 中规划</button>
+          <div id="waypoint-list" class="waypoint-list"></div>
+          <button id="add-waypoint" class="secondary add-waypoint" type="button">＋ 添加途经点</button>
+          <button class="primary" type="submit">显示驾车路线</button>
+          <p id="route-message" class="message"></p>
         </form>
       </section>
 
@@ -76,11 +75,10 @@
           <h1>显示设置</h1>
           <span></span>
         </div>
-        <p class="hint">设置地图顶部显示的时间、当前位置方向和头像。所有内容只保存在本机。</p>
+        <p class="hint">设置地图顶部显示的时间和头像。所有内容只保存在本机。</p>
         <form id="display-settings-form" class="card display-settings-card">
           <label class="stacked"><span>显示时间</span><input id="display-time" type="time" step="60" /></label>
           <div class="display-setting-actions"><button id="display-time-reset" class="secondary compact" type="button">恢复系统时间</button></div>
-          <label class="stacked heading-field"><span>定位点方向 <output id="heading-value">0° 北</output></span><input id="heading" type="range" min="0" max="359" step="1" value="0" /></label>
           <button class="primary" type="submit">保存显示设置</button>
           <p id="display-settings-message" class="message"></p>
         </form>
