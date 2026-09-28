@@ -61,6 +61,11 @@ async function applyLocationOverride() {
       accuracy: settings.accuracy,
       heading: settings.heading,
     });
+    await debug.sendCommand('DeviceOrientation.setDeviceOrientationOverride', {
+      alpha: (360 - settings.heading) % 360,
+      beta: 0,
+      gamma: 0,
+    });
     await debug.sendCommand('Emulation.setTouchEmulationEnabled', {
       enabled: true,
       maxTouchPoints: 5,
@@ -228,6 +233,7 @@ async function applyMapAppearance() {
     const avatarDataUrl = JSON.stringify(selectedAvatar);
     const currentLocationUrl = JSON.stringify(mapUrlAtLocation());
     const displayTime = JSON.stringify(settings.timeOverride || '');
+    const displayHeading = Number(settings.heading) || 0;
     await mapView.webContents.executeJavaScript(`(() => {
       document.querySelector('#meimap-category-row')?.remove();
 
@@ -272,6 +278,43 @@ async function applyMapAppearance() {
       }
       window.__meiMapDisplayTime = ${displayTime};
       window.__meiMapUpdateTime?.();
+
+      window.__meiMapHeading = ${displayHeading};
+      const emitHeading = () => {
+        const heading = Number(window.__meiMapHeading) || 0;
+        const alpha = (360 - heading) % 360;
+        for (const eventName of ['deviceorientationabsolute', 'deviceorientation']) {
+          let event;
+          try {
+            event = new DeviceOrientationEvent(eventName, {
+              alpha,
+              beta: 0,
+              gamma: 0,
+              absolute: true,
+            });
+          } catch {
+            event = new Event(eventName);
+            Object.defineProperties(event, {
+              alpha: { value: alpha },
+              beta: { value: 0 },
+              gamma: { value: 0 },
+              absolute: { value: true },
+            });
+          }
+          try {
+            Object.defineProperties(event, {
+              webkitCompassHeading: { value: heading },
+              webkitCompassAccuracy: { value: 5 },
+            });
+          } catch {}
+          window.dispatchEvent(event);
+        }
+      };
+      window.__meiMapEmitHeading = emitHeading;
+      emitHeading();
+      if (!window.__meiMapHeadingTimer) {
+        window.__meiMapHeadingTimer = setInterval(() => window.__meiMapEmitHeading?.(), 500);
+      }
 
       if (!document.querySelector('#meimap-location-button')) {
         const locationButton = document.createElement('button');
