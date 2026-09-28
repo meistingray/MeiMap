@@ -168,6 +168,14 @@ button { cursor: pointer; }
 .active-pill { width: 50px; height: 29px; border-radius: 18px; background: #d8f4ff; display: grid; place-items: center; }
 .tabbar button.active .tab-icon { fill: currentColor; }
 
+.display-settings-card { padding: 4px 14px 14px; }
+.display-setting-actions { display: flex; justify-content: flex-end; padding: 10px 0 2px; }
+.secondary.compact { width: auto; margin: 0; padding: 8px 12px; color: #007aff; }
+.heading-field { border-top: 1px solid #ececef; margin-top: 8px; }
+.heading-field span { display: flex; justify-content: space-between; align-items: center; }
+.heading-field output { color: #007aff; font-size: 13px; }
+.heading-field input[type="range"] { padding: 11px 0 5px; accent-color: #007aff; }
+.avatar-hint { margin: 18px 2px 0; }
 .avatar-card { text-align: center; padding: 22px 18px; }
 .avatar-card img { width: 112px; height: 112px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 20px; background: #e5e5ea; }
 .avatar-card img.empty { visibility: hidden; }
