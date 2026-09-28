@@ -43,6 +43,8 @@ document.querySelector('#tab-avatar').addEventListener('click', async () => {
   const preview = document.querySelector('#avatar-preview');
   preview.src = current.avatarDataUrl || '';
   preview.classList.toggle('empty', !current.avatarDataUrl);
+  document.querySelector('#display-time').value = current.timeOverride || '';
+  setHeadingValue(current.heading ?? 0);
   document.querySelector('#avatar-message').textContent = '';
   showLocalScreen('avatar');
   window.meiMap.showSettings();
@@ -118,6 +120,44 @@ document.querySelector('#avatar-file').addEventListener('change', (event) => {
 });
 
 document.querySelector('#avatar-clear').addEventListener('click', () => saveAvatar(''));
+
+function headingLabel(value) {
+  const heading = Number(value) || 0;
+  const names = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+  return `${heading}° ${names[Math.round(heading / 45) % 8]}`;
+}
+
+function setHeadingValue(value) {
+  const heading = document.querySelector('#heading');
+  heading.value = Number(value) || 0;
+  document.querySelector('#heading-value').textContent = headingLabel(heading.value);
+}
+
+document.querySelector('#heading').addEventListener('input', (event) => {
+  document.querySelector('#heading-value').textContent = headingLabel(event.target.value);
+});
+
+document.querySelector('#display-time-reset').addEventListener('click', () => {
+  document.querySelector('#display-time').value = '';
+  document.querySelector('#display-settings-message').textContent = '将使用系统时间';
+});
+
+document.querySelector('#display-settings-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const displayMessage = document.querySelector('#display-settings-message');
+  displayMessage.classList.remove('error');
+  displayMessage.textContent = '正在保存…';
+  try {
+    await window.meiMap.saveSettings({
+      timeOverride: document.querySelector('#display-time').value,
+      heading: document.querySelector('#heading').value,
+    });
+    displayMessage.textContent = '显示设置已应用';
+  } catch (error) {
+    displayMessage.classList.add('error');
+    displayMessage.textContent = error.message;
+  }
+});
 
 document.querySelector('#retry').addEventListener('click', () => window.meiMap.goCurrentLocation());
 
