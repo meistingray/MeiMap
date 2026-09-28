@@ -1,0 +1,35 @@
+name: Build Windows portable app
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  package:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build portable executable
+        run: npm run dist
+
+      - name: Upload portable executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: MeiMap-windows-portable
+          path: dist/*.exe
+          if-no-files-found: error
