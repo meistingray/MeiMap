@@ -82,6 +82,15 @@
           <button class="primary" type="submit">保存显示设置</button>
           <p id="display-settings-message" class="message"></p>
         </form>
+        <p class="hint avatar-hint">截图</p>
+        <div class="screenshot-card card">
+          <div class="shortcut-row"><span>截取当前页面</span><kbd>Ctrl + Shift + S</kbd></div>
+          <span class="setting-label">保存位置</span>
+          <p id="screenshot-directory" class="directory-path">桌面（默认）</p>
+          <button id="choose-screenshot-directory" class="secondary screenshot-button" type="button">选择文件夹</button>
+          <button id="reset-screenshot-directory" class="secondary screenshot-reset" type="button">恢复保存到桌面</button>
+          <p id="screenshot-message" class="message"></p>
+        </div>
         <p class="hint avatar-hint">头像</p>
         <div class="avatar-card card">
           <img id="avatar-preview" alt="头像预览" />

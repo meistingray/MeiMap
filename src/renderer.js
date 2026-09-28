@@ -10,6 +10,10 @@ const latitude = document.querySelector('#latitude');
 const longitude = document.querySelector('#longitude');
 const message = document.querySelector('#settings-message');
 
+function showScreenshotDirectory(directory) {
+  document.querySelector('#screenshot-directory').textContent = directory || '桌面（默认）';
+}
+
 function showLocalScreen(name) {
   Object.values(screens).forEach((screen) => screen.classList.add('hidden'));
   if (screens[name]) screens[name].classList.remove('hidden');
@@ -45,6 +49,8 @@ document.querySelector('#tab-avatar').addEventListener('click', async () => {
   preview.classList.toggle('empty', !current.avatarDataUrl);
   document.querySelector('#display-time').value = current.timeOverride || '';
   document.querySelector('#avatar-message').textContent = '';
+  document.querySelector('#screenshot-message').textContent = '';
+  showScreenshotDirectory(current.screenshotDirectory);
   showLocalScreen('avatar');
   window.meiMap.showSettings();
 });
@@ -159,6 +165,20 @@ document.querySelector('#avatar-file').addEventListener('change', (event) => {
 });
 
 document.querySelector('#avatar-clear').addEventListener('click', () => saveAvatar(''));
+
+document.querySelector('#choose-screenshot-directory').addEventListener('click', async () => {
+  const screenshotMessage = document.querySelector('#screenshot-message');
+  const directory = await window.meiMap.chooseScreenshotDirectory();
+  if (directory == null) return;
+  showScreenshotDirectory(directory);
+  screenshotMessage.textContent = '截图将保存到这个文件夹';
+});
+
+document.querySelector('#reset-screenshot-directory').addEventListener('click', async () => {
+  await window.meiMap.resetScreenshotDirectory();
+  showScreenshotDirectory('');
+  document.querySelector('#screenshot-message').textContent = '已恢复保存到桌面';
+});
 
 document.querySelector('#display-time-reset').addEventListener('click', () => {
   document.querySelector('#display-time').value = '';

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, WebContentsView, Notification, desktopCapturer, ipcMain, screen, shell, session } = require('electron');
+const { app, BrowserWindow, WebContentsView, Notification, desktopCapturer, dialog, ipcMain, screen, shell, session } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS = {
   accuracy: 25,
   timeOverride: '',
   avatarDataUrl: '',
+  screenshotDirectory: '',
 };
 
 let mainWindow;
@@ -110,13 +111,13 @@ async function applyMapAppearance() {
         bottom: 49px;
         color: #3c4043;
         font-family: Arial, sans-serif;
-        font-size: 22px;
+        font-size: 19px;
         font-weight: 500;
         line-height: 1;
         letter-spacing: -.35px;
         white-space: nowrap;
         pointer-events: none;
-        -webkit-text-stroke: 3px #fff;
+        -webkit-text-stroke: 2px #fff;
         paint-order: stroke fill;
         text-shadow: 0 1px 1px rgba(60, 64, 67, .18);
       }
@@ -299,8 +300,11 @@ async function applyMapAppearance() {
       if (googleBrand) {
         const brandRect = googleBrand.getBoundingClientRect();
         if (brandRect.width > 0 && brandRect.height > 0) {
+          const brandFontSize = Math.max(16, Math.min(20, Math.round(brandRect.height * .78)));
+          brandLabel.style.fontSize = brandFontSize + 'px';
+          brandLabel.style.webkitTextStrokeWidth = Math.max(2, Math.round(brandFontSize * .11)) + 'px';
           brandLabel.style.left = Math.round(brandRect.left) + 'px';
-          brandLabel.style.top = Math.max(0, Math.round(brandRect.top - 28)) + 'px';
+          brandLabel.style.top = Math.max(0, Math.round(brandRect.top - brandLabel.getBoundingClientRect().height - 4)) + 'px';
           brandLabel.style.bottom = 'auto';
         }
       }
@@ -463,9 +467,13 @@ async function captureCurrentPage() {
     String(now.getSeconds()).padStart(2, '0'),
   ].join('');
   const fileName = `MeiMap-${stamp}.png`;
-  fs.writeFileSync(path.join(app.getPath('desktop'), fileName), source.thumbnail.toPNG());
+  const configuredDirectory = settings.screenshotDirectory || '';
+  const outputDirectory = configuredDirectory && fs.existsSync(configuredDirectory)
+    ? configuredDirectory
+    : app.getPath('desktop');
+  fs.writeFileSync(path.join(outputDirectory, fileName), source.thumbnail.toPNG());
   if (Notification.isSupported()) {
-    new Notification({ title: 'MeiMap 截图已保存', body: `桌面\\${fileName}` }).show();
+    new Notification({ title: 'MeiMap 截图已保存', body: path.join(outputDirectory, fileName) }).show();
   }
 }
 
@@ -570,6 +578,24 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => app.quit());
 
 ipcMain.handle('get-settings', () => ({ ...settings }));
+
+ipcMain.handle('choose-screenshot-directory', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '选择截图保存位置',
+    defaultPath: settings.screenshotDirectory || app.getPath('desktop'),
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  settings = { ...settings, screenshotDirectory: result.filePaths[0] };
+  saveSettings(settings);
+  return settings.screenshotDirectory;
+});
+
+ipcMain.handle('reset-screenshot-directory', () => {
+  settings = { ...settings, screenshotDirectory: '' };
+  saveSettings(settings);
+  return '';
+});
 
 ipcMain.handle('save-settings', async (_event, payload) => {
   const latitude = payload.latitude == null ? settings.latitude : Number(payload.latitude);
