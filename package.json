@@ -22,7 +22,8 @@
       "package.json"
     ],
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "sign": false
     }
   }
 }
