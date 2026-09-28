@@ -311,7 +311,7 @@ async function applyMapAppearance() {
           /\b\d+\s*min\b|\d+\s*分钟/
         ];
         document.querySelectorAll('button,[role="button"],input,[aria-label],p,span,div').forEach((node) => {
-          const text = `${node.getAttribute('aria-label') || ''} ${node.innerText || ''} ${node.value || ''}`.trim();
+          const text = ((node.getAttribute('aria-label') || '') + ' ' + (node.innerText || '') + ' ' + (node.value || '')).trim();
           if (text && patterns.some((pattern) => pattern.test(text))) hideRouteElement(node);
         });
         document.querySelectorAll('input').forEach((input) => {
