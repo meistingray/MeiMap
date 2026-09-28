@@ -6,6 +6,8 @@ const DEFAULT_SETTINGS = {
   latitude: 22.3193,
   longitude: 114.1694,
   accuracy: 25,
+  timeOverride: '',
+  heading: 0,
   avatarDataUrl: '',
 };
 
@@ -57,6 +59,7 @@ async function applyLocationOverride() {
       latitude: settings.latitude,
       longitude: settings.longitude,
       accuracy: settings.accuracy,
+      heading: settings.heading,
     });
     await debug.sendCommand('Emulation.setTouchEmulationEnabled', {
       enabled: true,
@@ -224,6 +227,7 @@ async function applyMapAppearance() {
     const selectedAvatar = process.argv.includes('--smoke-test') ? smokeAvatar : (settings.avatarDataUrl || '');
     const avatarDataUrl = JSON.stringify(selectedAvatar);
     const currentLocationUrl = JSON.stringify(mapUrlAtLocation());
+    const displayTime = JSON.stringify(settings.timeOverride || '');
     await mapView.webContents.executeJavaScript(`(() => {
       document.querySelector('#meimap-category-row')?.remove();
 
@@ -257,13 +261,17 @@ async function applyMapAppearance() {
         status.innerHTML = '<span id="meimap-map-time"></span><span id="meimap-status-icons"><span id="meimap-cellular"><i></i><i></i><i></i><i></i></span><svg id="meimap-battery" viewBox="0 0 27 13" aria-hidden="true"><rect x=".7" y=".7" width="23" height="11.6" rx="3.1" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="2.5" y="2.5" width="17.5" height="8" rx="1.8" fill="currentColor"/><path d="M25 4.1c.8.4 1.25 1.1 1.25 2.4S25.8 8.5 25 8.9V4.1Z" fill="currentColor" opacity=".42"/></svg></span>';
         document.body.appendChild(status);
         const updateTime = () => {
-          const value = new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+          const value = window.__meiMapDisplayTime || new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
           const time = document.querySelector('#meimap-map-time');
           if (time) time.textContent = value;
         };
+        window.__meiMapUpdateTime = updateTime;
+        window.__meiMapDisplayTime = ${displayTime};
         updateTime();
-        setInterval(updateTime, 30000);
+        if (!window.__meiMapClockTimer) window.__meiMapClockTimer = setInterval(() => window.__meiMapUpdateTime?.(), 30000);
       }
+      window.__meiMapDisplayTime = ${displayTime};
+      window.__meiMapUpdateTime?.();
 
       if (!document.querySelector('#meimap-location-button')) {
         const locationButton = document.createElement('button');
@@ -431,6 +439,16 @@ ipcMain.handle('save-settings', async (_event, payload) => {
     throw new Error('经度必须在 -180 到 180 之间');
   }
 
+  const timeOverride = payload.timeOverride == null ? settings.timeOverride : String(payload.timeOverride);
+  if (timeOverride && !/^([01]\d|2[0-3]):[0-5]\d$/.test(timeOverride)) {
+    throw new Error('显示时间格式无效');
+  }
+
+  const heading = payload.heading == null ? settings.heading : Number(payload.heading);
+  if (!Number.isFinite(heading) || heading < 0 || heading >= 360) {
+    throw new Error('方向必须在 0 到 359 度之间');
+  }
+
   let avatarDataUrl = settings.avatarDataUrl || '';
   if (typeof payload.avatarDataUrl === 'string') {
     if (payload.avatarDataUrl && !payload.avatarDataUrl.startsWith('data:image/')) {
@@ -442,7 +460,7 @@ ipcMain.handle('save-settings', async (_event, payload) => {
     avatarDataUrl = payload.avatarDataUrl;
   }
 
-  settings = { ...settings, latitude, longitude, avatarDataUrl };
+  settings = { ...settings, latitude, longitude, timeOverride, heading, avatarDataUrl };
   saveSettings(settings);
   await applyLocationOverride();
   await applyMapAppearance();
