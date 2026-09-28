@@ -44,7 +44,6 @@ document.querySelector('#tab-avatar').addEventListener('click', async () => {
   preview.src = current.avatarDataUrl || '';
   preview.classList.toggle('empty', !current.avatarDataUrl);
   document.querySelector('#display-time').value = current.timeOverride || '';
-  setHeadingValue(current.heading ?? 0);
   document.querySelector('#avatar-message').textContent = '';
   showLocalScreen('avatar');
   window.meiMap.showSettings();
@@ -76,11 +75,51 @@ document.querySelectorAll('.presets button').forEach((button) => {
   });
 });
 
+const waypointList = document.querySelector('#waypoint-list');
+const addWaypointButton = document.querySelector('#add-waypoint');
+const routeMessage = document.querySelector('#route-message');
+const MAX_WAYPOINTS = 3;
+
+function refreshWaypointRows() {
+  const rows = [...waypointList.querySelectorAll('.waypoint-row')];
+  rows.forEach((row, index) => {
+    row.querySelector('.waypoint-label').textContent = `途经点 ${index + 1}`;
+    row.querySelector('input').placeholder = `例如：中环、尖沙咀或坐标`;
+    row.querySelector('.remove-waypoint').disabled = rows.length === 1;
+  });
+  addWaypointButton.disabled = rows.length >= MAX_WAYPOINTS;
+}
+
+function addWaypoint(value = '') {
+  if (waypointList.children.length >= MAX_WAYPOINTS) return;
+  const row = document.createElement('label');
+  row.className = 'stacked waypoint-row';
+  row.innerHTML = `<span class="waypoint-label"></span><span class="waypoint-control"><input class="waypoint-input" autocomplete="off" value="${value.replace(/"/g, '&quot;')}" /><button class="remove-waypoint" type="button" aria-label="删除途经点">×</button></span>`;
+  row.querySelector('.remove-waypoint').addEventListener('click', () => {
+    row.remove();
+    refreshWaypointRows();
+  });
+  waypointList.appendChild(row);
+  refreshWaypointRows();
+}
+
+addWaypointButton.addEventListener('click', () => addWaypoint());
+addWaypoint();
+
 document.querySelector('#route-form').addEventListener('submit', (event) => {
   event.preventDefault();
-  const destination = document.querySelector('#destination').value;
-  const mode = document.querySelector('input[name="mode"]:checked').value;
-  window.meiMap.openRoute(destination, mode);
+  const destination = document.querySelector('#destination').value.trim();
+  const waypoints = [...document.querySelectorAll('.waypoint-input')]
+    .map((input) => input.value.trim())
+    .filter(Boolean);
+  if (waypoints.length > MAX_WAYPOINTS) {
+    routeMessage.classList.add('error');
+    routeMessage.textContent = `最多支持 ${MAX_WAYPOINTS} 个途经点`;
+    return;
+  }
+  routeMessage.classList.remove('error');
+  routeMessage.textContent = '正在加载驾车路线…';
+  window.meiMap.openRoute(destination, waypoints);
 });
 
 async function saveAvatar(avatarDataUrl) {
@@ -121,22 +160,6 @@ document.querySelector('#avatar-file').addEventListener('change', (event) => {
 
 document.querySelector('#avatar-clear').addEventListener('click', () => saveAvatar(''));
 
-function headingLabel(value) {
-  const heading = Number(value) || 0;
-  const names = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
-  return `${heading}° ${names[Math.round(heading / 45) % 8]}`;
-}
-
-function setHeadingValue(value) {
-  const heading = document.querySelector('#heading');
-  heading.value = Number(value) || 0;
-  document.querySelector('#heading-value').textContent = headingLabel(heading.value);
-}
-
-document.querySelector('#heading').addEventListener('input', (event) => {
-  document.querySelector('#heading-value').textContent = headingLabel(event.target.value);
-});
-
 document.querySelector('#display-time-reset').addEventListener('click', () => {
   document.querySelector('#display-time').value = '';
   document.querySelector('#display-settings-message').textContent = '将使用系统时间';
@@ -150,7 +173,6 @@ document.querySelector('#display-settings-form').addEventListener('submit', asyn
   try {
     await window.meiMap.saveSettings({
       timeOverride: document.querySelector('#display-time').value,
-      heading: document.querySelector('#heading').value,
     });
     displayMessage.textContent = '显示设置已应用';
   } catch (error) {
