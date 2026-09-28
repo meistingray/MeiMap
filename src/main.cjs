@@ -103,6 +103,24 @@ async function applyMapAppearance() {
         transform: translateX(0) translateY(0) !important;
       }
 
+      #meimap-brand-label {
+        position: fixed;
+        z-index: 100002;
+        left: 18px;
+        bottom: 49px;
+        color: #3c4043;
+        font-family: Arial, sans-serif;
+        font-size: 22px;
+        font-weight: 500;
+        line-height: 1;
+        letter-spacing: -.35px;
+        white-space: nowrap;
+        pointer-events: none;
+        -webkit-text-stroke: 3px #fff;
+        paint-order: stroke fill;
+        text-shadow: 0 1px 1px rgba(60, 64, 67, .18);
+      }
+
       #meimap-statusbar {
         position: fixed;
         z-index: 100003;
@@ -270,6 +288,22 @@ async function applyMapAppearance() {
       }
 
       const ensureMeiMapOverlays = () => {
+      let brandLabel = document.querySelector('#meimap-brand-label');
+      if (!brandLabel) {
+        brandLabel = document.createElement('div');
+        brandLabel.id = 'meimap-brand-label';
+        brandLabel.textContent = 'MeiMap';
+        document.body.appendChild(brandLabel);
+      }
+      const googleBrand = document.querySelector('.ml-branding-icon-google-logo-on-map');
+      if (googleBrand) {
+        const brandRect = googleBrand.getBoundingClientRect();
+        if (brandRect.width > 0 && brandRect.height > 0) {
+          brandLabel.style.left = Math.round(brandRect.left) + 'px';
+          brandLabel.style.top = Math.max(0, Math.round(brandRect.top - 28)) + 'px';
+          brandLabel.style.bottom = 'auto';
+        }
+      }
       if (!document.querySelector('#meimap-statusbar')) {
         const status = document.createElement('div');
         status.id = 'meimap-statusbar';
