@@ -7,7 +7,6 @@ const DEFAULT_SETTINGS = {
   longitude: 114.1694,
   accuracy: 25,
   timeOverride: '',
-  heading: 0,
   avatarDataUrl: '',
 };
 
@@ -24,7 +23,8 @@ function settingsPath() {
 function loadSettings() {
   try {
     const saved = JSON.parse(fs.readFileSync(settingsPath(), 'utf8'));
-    return { ...DEFAULT_SETTINGS, ...saved };
+    const { heading: _heading, ...savedWithoutHeading } = saved;
+    return { ...DEFAULT_SETTINGS, ...savedWithoutHeading };
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
@@ -59,12 +59,6 @@ async function applyLocationOverride() {
       latitude: settings.latitude,
       longitude: settings.longitude,
       accuracy: settings.accuracy,
-      heading: settings.heading,
-    });
-    await debug.sendCommand('DeviceOrientation.setDeviceOrientationOverride', {
-      alpha: (360 - settings.heading) % 360,
-      beta: 0,
-      gamma: 0,
     });
     await debug.sendCommand('Emulation.setTouchEmulationEnabled', {
       enabled: true,
@@ -226,6 +220,15 @@ async function applyMapAppearance() {
         box-shadow: 0 0 0 2px #1a73e8;
         object-fit: cover;
       }
+
+      html[data-meimap-route="true"] .l1KbHe.pVMw6d,
+      html[data-meimap-route="true"] .ml-persistent-promo-banner,
+      html[data-meimap-route="true"] .ml-assistive-chips,
+      html[data-meimap-route="true"] .P8NcLd.visible,
+      html[data-meimap-route="true"] .ml-my-location-fab {
+        display: none !important;
+      }
+
     `);
 
     const smokeAvatar = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" fill="#f4a261"/><circle cx="64" cy="52" r="28" fill="#264653"/><path d="M22 128c4-34 23-50 42-50s38 16 42 50" fill="#2a9d8f"/></svg>');
@@ -233,7 +236,13 @@ async function applyMapAppearance() {
     const avatarDataUrl = JSON.stringify(selectedAvatar);
     const currentLocationUrl = JSON.stringify(mapUrlAtLocation());
     const displayTime = JSON.stringify(settings.timeOverride || '');
-    const displayHeading = Number(settings.heading) || 0;
+    const routeMode = (() => {
+      try {
+        return new URL(mapView.webContents.getURL()).pathname.startsWith('/maps/dir');
+      } catch {
+        return false;
+      }
+    })();
     await mapView.webContents.executeJavaScript(`(() => {
       document.querySelector('#meimap-category-row')?.remove();
 
@@ -279,41 +288,51 @@ async function applyMapAppearance() {
       window.__meiMapDisplayTime = ${displayTime};
       window.__meiMapUpdateTime?.();
 
-      window.__meiMapHeading = ${displayHeading};
-      const emitHeading = () => {
-        const heading = Number(window.__meiMapHeading) || 0;
-        const alpha = (360 - heading) % 360;
-        for (const eventName of ['deviceorientationabsolute', 'deviceorientation']) {
-          let event;
-          try {
-            event = new DeviceOrientationEvent(eventName, {
-              alpha,
-              beta: 0,
-              gamma: 0,
-              absolute: true,
-            });
-          } catch {
-            event = new Event(eventName);
-            Object.defineProperties(event, {
-              alpha: { value: alpha },
-              beta: { value: 0 },
-              gamma: { value: 0 },
-              absolute: { value: true },
-            });
+      const isRouteMode = ${routeMode};
+      document.documentElement.dataset.meimapRoute = isRouteMode ? 'true' : 'false';
+      const hideRouteElement = (node) => {
+        let current = node;
+        for (let depth = 0; current && current !== document.body && depth < 8; depth += 1, current = current.parentElement) {
+          const rect = current.getBoundingClientRect();
+          const style = getComputedStyle(current);
+          const positioned = style.position === 'fixed' || style.position === 'absolute';
+          if (positioned && rect.width > innerWidth * .55 && rect.height > 36 && rect.height < innerHeight * .72) {
+            current.style.setProperty('display', 'none', 'important');
+            return;
           }
-          try {
-            Object.defineProperties(event, {
-              webkitCompassHeading: { value: heading },
-              webkitCompassAccuracy: { value: 5 },
-            });
-          } catch {}
-          window.dispatchEvent(event);
         }
       };
-      window.__meiMapEmitHeading = emitHeading;
-      emitHeading();
-      if (!window.__meiMapHeadingTimer) {
-        window.__meiMapHeadingTimer = setInterval(() => window.__meiMapEmitHeading?.(), 500);
+      const hideRouteChrome = () => {
+        if (!isRouteMode) return;
+        const patterns = [
+          /切换到应用|在应用中打开|获取实时路况|路线选项|到达时间|open in app|get real-time traffic|directions options/i,
+          /^开始$|^start$/i,
+          /^驾车$|^步行$|^公交$|^骑行$|^driving$|^walking$|^transit$|^bicycling$/i,
+          /\b\d+\s*min\b|\d+\s*分钟/
+        ];
+        document.querySelectorAll('button,[role="button"],input,[aria-label]').forEach((node) => {
+          const text = `${node.getAttribute('aria-label') || ''} ${node.innerText || ''} ${node.value || ''}`.trim();
+          if (text && patterns.some((pattern) => pattern.test(text))) hideRouteElement(node);
+        });
+        document.querySelectorAll('input').forEach((input) => {
+          const rect = input.getBoundingClientRect();
+          if (rect.top < 210 && rect.width > 180) hideRouteElement(input);
+        });
+        window.dispatchEvent(new Event('resize'));
+      };
+      if (isRouteMode) {
+        hideRouteChrome();
+        if (!window.__meiMapRouteObserver) {
+          let routeHideTimer;
+          window.__meiMapRouteObserver = new MutationObserver(() => {
+            clearTimeout(routeHideTimer);
+            routeHideTimer = setTimeout(hideRouteChrome, 80);
+          });
+          window.__meiMapRouteObserver.observe(document.body, { childList: true, subtree: true });
+        }
+        setTimeout(hideRouteChrome, 500);
+      } else {
+        document.documentElement.dataset.meimapRoute = 'false';
       }
 
       if (!document.querySelector('#meimap-location-button')) {
@@ -393,6 +412,19 @@ function mapUrlAtLocation() {
   const { latitude, longitude } = settings;
   return `https://www.google.com/maps/@${latitude},${longitude},16z?hl=zh-CN`;
 }
+
+function mapRouteUrl(destination, waypoints) {
+  const origin = `${settings.latitude},${settings.longitude}`;
+  const url = new URL('https://www.google.com/maps/dir/');
+  url.searchParams.set('api', '1');
+  url.searchParams.set('origin', origin);
+  url.searchParams.set('destination', destination);
+  url.searchParams.set('travelmode', 'driving');
+  if (waypoints.length) url.searchParams.set('waypoints', waypoints.join('|'));
+  url.searchParams.set('hl', 'zh-CN');
+  return url.toString();
+}
+
 
 function createWindow() {
   settings = loadSettings();
@@ -487,11 +519,6 @@ ipcMain.handle('save-settings', async (_event, payload) => {
     throw new Error('显示时间格式无效');
   }
 
-  const heading = payload.heading == null ? settings.heading : Number(payload.heading);
-  if (!Number.isFinite(heading) || heading < 0 || heading >= 360) {
-    throw new Error('方向必须在 0 到 359 度之间');
-  }
-
   let avatarDataUrl = settings.avatarDataUrl || '';
   if (typeof payload.avatarDataUrl === 'string') {
     if (payload.avatarDataUrl && !payload.avatarDataUrl.startsWith('data:image/')) {
@@ -503,7 +530,7 @@ ipcMain.handle('save-settings', async (_event, payload) => {
     avatarDataUrl = payload.avatarDataUrl;
   }
 
-  settings = { ...settings, latitude, longitude, timeOverride, heading, avatarDataUrl };
+  settings = { ...settings, latitude, longitude, timeOverride, avatarDataUrl };
   saveSettings(settings);
   await applyLocationOverride();
   await applyMapAppearance();
@@ -519,17 +546,14 @@ ipcMain.on('go-current-location', async () => {
   mapView.webContents.loadURL(mapUrlAtLocation());
 });
 
-ipcMain.on('open-route', (_event, destination, mode) => {
+ipcMain.on('open-route', (_event, destination, waypoints) => {
   const trimmed = String(destination || '').trim();
   if (!trimmed) return;
-  const origin = `${settings.latitude},${settings.longitude}`;
-  const url = new URL('https://www.google.com/maps/dir/');
-  url.searchParams.set('api', '1');
-  url.searchParams.set('origin', origin);
-  url.searchParams.set('destination', trimmed);
-  url.searchParams.set('travelmode', mode === 'walking' ? 'walking' : 'driving');
+  const normalizedWaypoints = Array.isArray(waypoints)
+    ? waypoints.map((value) => String(value || '').trim()).filter(Boolean).slice(0, 3)
+    : [];
   setScreen('map');
-  mapView.webContents.loadURL(url.toString());
+  mapView.webContents.loadURL(mapRouteUrl(trimmed, normalizedWaypoints));
 });
 
 ipcMain.on('window-minimize', () => mainWindow?.minimize());
