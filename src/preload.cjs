@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld('meiMap', {
   showMap: () => ipcRenderer.send('show-map'),
   showSettings: () => ipcRenderer.send('show-settings'),
   goCurrentLocation: () => ipcRenderer.send('go-current-location'),
-  openRoute: (destination, mode) => ipcRenderer.send('open-route', destination, mode),
+  openRoute: (destination, waypoints) => ipcRenderer.send('open-route', destination, waypoints),
   minimize: () => ipcRenderer.send('window-minimize'),
   close: () => ipcRenderer.send('window-close'),
   onScreenChanged: (callback) => ipcRenderer.on('screen-changed', (_event, screen) => callback(screen)),
