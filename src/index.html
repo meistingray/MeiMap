@@ -73,10 +73,18 @@
       <section id="avatar-screen" class="screen hidden">
         <div class="sheet-title">
           <button class="back-button" id="avatar-back">‹ 地图</button>
-          <h1>显示头像</h1>
+          <h1>显示设置</h1>
           <span></span>
         </div>
-        <p class="hint">选择一张图片，替换地图搜索栏右侧的头像。图片只保存在本机。</p>
+        <p class="hint">设置地图顶部显示的时间、当前位置方向和头像。所有内容只保存在本机。</p>
+        <form id="display-settings-form" class="card display-settings-card">
+          <label class="stacked"><span>显示时间</span><input id="display-time" type="time" step="60" /></label>
+          <div class="display-setting-actions"><button id="display-time-reset" class="secondary compact" type="button">恢复系统时间</button></div>
+          <label class="stacked heading-field"><span>定位点方向 <output id="heading-value">0° 北</output></span><input id="heading" type="range" min="0" max="359" step="1" value="0" /></label>
+          <button class="primary" type="submit">保存显示设置</button>
+          <p id="display-settings-message" class="message"></p>
+        </form>
+        <p class="hint avatar-hint">头像</p>
         <div class="avatar-card card">
           <img id="avatar-preview" alt="头像预览" />
           <label class="avatar-picker">
