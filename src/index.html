@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data: blob:" />
+    <title>MeiMap</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="statusbar">
+      <div class="status-left">
+        <span class="clock" id="clock">09:41</span>
+      </div>
+      <div class="status-icons" aria-label="蜂窝网络和电池状态">
+        <span class="cellular"><i></i><i></i><i></i><i></i></span>
+        <svg class="battery-svg" viewBox="0 0 27 13" aria-hidden="true"><rect x=".7" y=".7" width="23" height="11.6" rx="3.1" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="2.5" y="2.5" width="17.5" height="8" rx="1.8" fill="currentColor"/><path d="M25 4.1c.8.4 1.25 1.1 1.25 2.4S25.8 8.5 25 8.9V4.1Z" fill="currentColor" opacity=".42"/></svg>
+      </div>
+    </header>
+
+    <main id="panel" class="panel" aria-live="polite">
+      <section id="settings-screen" class="screen hidden">
+        <div class="sheet-title">
+          <button class="back-button" id="settings-back">‹ 地图</button>
+          <h1>设置位置</h1>
+          <span></span>
+        </div>
+        <p class="hint">Google Maps 读取到的“当前位置”将使用这里的坐标，不会读取电脑 GPS。</p>
+        <form id="settings-form" class="card">
+          <label>
+            <span>纬度</span>
+            <input id="latitude" name="latitude" type="number" min="-90" max="90" step="any" required />
+          </label>
+          <label>
+            <span>经度</span>
+            <input id="longitude" name="longitude" type="number" min="-180" max="180" step="any" required />
+          </label>
+          <button class="primary" type="submit">保存并应用</button>
+          <p id="settings-message" class="message"></p>
+        </form>
+        <div class="presets">
+          <p>常用示例</p>
+          <button data-lat="22.3193" data-lng="114.1694">香港</button>
+          <button data-lat="31.2304" data-lng="121.4737">上海</button>
+          <button data-lat="39.9042" data-lng="116.4074">北京</button>
+        </div>
+        <div class="app-actions">
+          <button id="minimize">最小化窗口</button>
+          <button id="close" class="danger">退出 MeiMap</button>
+        </div>
+      </section>
+
+      <section id="route-screen" class="screen hidden">
+        <div class="sheet-title">
+          <button class="back-button" id="route-back">‹ 地图</button>
+          <h1>路线</h1>
+          <span></span>
+        </div>
+        <p class="hint">起点是设置中的位置。目的地可输入地址、地点名或经纬度。</p>
+        <form id="route-form" class="card">
+          <label class="stacked">
+            <span>目的地</span>
+            <input id="destination" autocomplete="off" placeholder="例如：香港国际机场" required />
+          </label>
+          <div class="mode-picker" role="group" aria-label="出行方式">
+            <label><input type="radio" name="mode" value="driving" checked /> 驾车</label>
+            <label><input type="radio" name="mode" value="walking" /> 步行</label>
+          </div>
+          <button class="primary" type="submit">在 Google Maps 中规划</button>
+        </form>
+      </section>
+
+      <section id="avatar-screen" class="screen hidden">
+        <div class="sheet-title">
+          <button class="back-button" id="avatar-back">‹ 地图</button>
+          <h1>显示头像</h1>
+          <span></span>
+        </div>
+        <p class="hint">选择一张图片，替换地图搜索栏右侧的头像。图片只保存在本机。</p>
+        <div class="avatar-card card">
+          <img id="avatar-preview" alt="头像预览" />
+          <label class="avatar-picker">
+            选择图片
+            <input id="avatar-file" type="file" accept="image/*" />
+          </label>
+          <button id="avatar-clear" class="secondary" type="button">恢复默认头像</button>
+          <p id="avatar-message" class="message"></p>
+        </div>
+      </section>
+
+      <section id="error-screen" class="screen hidden">
+        <h1>地图没有载入</h1>
+        <p id="error-message" class="hint"></p>
+        <button class="primary" id="retry">重试</button>
+      </section>
+    </main>
+
+    <nav class="tabbar" aria-label="主导航">
+      <button id="tab-map" class="active">
+        <span class="active-pill"><svg class="tab-icon" viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12A7 7 0 1 0 5 9c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg></span>探索
+      </button>
+      <button id="tab-settings">
+        <span><svg class="tab-icon" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg></span>收藏
+      </button>
+      <button id="tab-route">
+        <span><svg class="tab-icon" viewBox="0 0 24 24"><path d="M9 18H6a3 3 0 0 1 0-6h12a3 3 0 0 0 0-6h-3"/><path d="m12 3 3 3-3 3"/><circle cx="9" cy="18" r="2"/></svg></span>路线
+      </button>
+      <button id="tab-avatar">
+        <span><svg class="tab-icon" viewBox="0 0 24 24"><path d="M4 21V6h16v15M8 6V3h8v3M8 10h2M14 10h2M8 14h2M14 14h2M10 21v-3h4v3"/></svg></span>酒店
+      </button>
+    </nav>
+    <script src="renderer.js"></script>
+  </body>
+</html>

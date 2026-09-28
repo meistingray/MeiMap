@@ -1,0 +1,11 @@
+node_modules/
+.pnpm-store/
+dist/
+
+smoke-*.png
+.packed-source/
+.history_*.txt
+
+*.log
+.DS_Store
+Thumbs.db

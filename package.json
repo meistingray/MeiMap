@@ -1,0 +1,28 @@
+{
+  "name": "meimap",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A tiny personal Google Maps desktop wrapper with a configurable location.",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke-test",
+    "dist": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "local.meimap.app",
+    "productName": "MeiMap",
+    "asar": true,
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable"
+    }
+  }
+}
