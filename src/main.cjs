@@ -310,7 +310,7 @@ async function applyMapAppearance() {
           /^驾车$|^步行$|^公交$|^骑行$|^driving$|^walking$|^transit$|^bicycling$/i,
           /\b\d+\s*min\b|\d+\s*分钟/
         ];
-        document.querySelectorAll('button,[role="button"],input,[aria-label]').forEach((node) => {
+        document.querySelectorAll('button,[role="button"],input,[aria-label],p,span,div').forEach((node) => {
           const text = `${node.getAttribute('aria-label') || ''} ${node.innerText || ''} ${node.value || ''}`.trim();
           if (text && patterns.some((pattern) => pattern.test(text))) hideRouteElement(node);
         });
