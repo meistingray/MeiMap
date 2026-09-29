@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('meiMap', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
+  saveLocationInput: (value) => ipcRenderer.invoke('save-location-input', value),
   chooseScreenshotDirectory: () => ipcRenderer.invoke('choose-screenshot-directory'),
   resetScreenshotDirectory: () => ipcRenderer.invoke('reset-screenshot-directory'),
   showMap: () => ipcRenderer.send('show-map'),

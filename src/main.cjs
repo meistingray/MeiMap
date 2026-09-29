@@ -5,8 +5,10 @@ const path = require('node:path');
 const DEFAULT_SETTINGS = {
   latitude: 22.3193,
   longitude: 114.1694,
+  locationLabel: '',
   accuracy: 25,
   timeOverride: '',
+  batteryLevel: 76,
   avatarDataUrl: '',
   screenshotDirectory: '',
 };
@@ -172,6 +174,10 @@ async function applyMapAppearance() {
         overflow: visible;
       }
 
+      #meimap-battery.low {
+        color: #ff3b30;
+      }
+
       .l1KbHe.pVMw6d {
         transform: translateY(42px) !important;
       }
@@ -255,6 +261,7 @@ async function applyMapAppearance() {
     const avatarDataUrl = JSON.stringify(selectedAvatar);
     const currentLocationUrl = JSON.stringify(mapUrlAtLocation());
     const displayTime = JSON.stringify(settings.timeOverride || '');
+    const batteryLevel = Math.max(0, Math.min(100, Number(settings.batteryLevel ?? 76)));
     const routeMode = (() => {
       try {
         return new URL(mapView.webContents.getURL()).pathname.startsWith('/maps/dir');
@@ -311,7 +318,7 @@ async function applyMapAppearance() {
       if (!document.querySelector('#meimap-statusbar')) {
         const status = document.createElement('div');
         status.id = 'meimap-statusbar';
-        status.innerHTML = '<span id="meimap-map-time"></span><span id="meimap-status-icons"><span id="meimap-cellular"><i></i><i></i><i></i><i></i></span><svg id="meimap-battery" viewBox="0 0 27 13" aria-hidden="true"><rect x=".7" y=".7" width="23" height="11.6" rx="3.1" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="2.5" y="2.5" width="17.5" height="8" rx="1.8" fill="currentColor"/><path d="M25 4.1c.8.4 1.25 1.1 1.25 2.4S25.8 8.5 25 8.9V4.1Z" fill="currentColor" opacity=".42"/></svg></span>';
+        status.innerHTML = '<span id="meimap-map-time"></span><span id="meimap-status-icons"><span id="meimap-cellular"><i></i><i></i><i></i><i></i></span><svg id="meimap-battery" viewBox="0 0 27 13" aria-hidden="true"><rect x=".7" y=".7" width="23" height="11.6" rx="3.1" fill="none" stroke="currentColor" stroke-width="1.4"/><rect id="meimap-battery-fill" x="2.5" y="2.5" width="17.5" height="8" rx="1.8" fill="currentColor"/><path d="M25 4.1c.8.4 1.25 1.1 1.25 2.4S25.8 8.5 25 8.9V4.1Z" fill="currentColor" opacity=".42"/></svg></span>';
         document.body.appendChild(status);
         const updateTime = () => {
           const value = window.__meiMapDisplayTime || new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
@@ -325,6 +332,13 @@ async function applyMapAppearance() {
       }
       window.__meiMapDisplayTime = ${displayTime};
       window.__meiMapUpdateTime?.();
+      const shownBatteryLevel = ${batteryLevel};
+      const battery = document.querySelector('#meimap-battery');
+      const batteryFill = document.querySelector('#meimap-battery-fill');
+      if (battery && batteryFill) {
+        batteryFill.setAttribute('width', String(19.5 * shownBatteryLevel / 100));
+        battery.classList.toggle('low', shownBatteryLevel <= 20);
+      }
 
       const isRouteMode = ${routeMode};
       document.documentElement.dataset.meimapRoute = isRouteMode ? 'true' : 'false';
@@ -488,14 +502,46 @@ function mapUrlAtLocation() {
   return `https://www.google.com/maps/@${latitude},${longitude},16z?hl=zh-CN`;
 }
 
+function parseCoordinateInput(value) {
+  const match = String(value || '').match(/^\s*(-?(?:\d+(?:\.\d+)?|\.\d+))\s*[,，]\s*(-?(?:\d+(?:\.\d+)?|\.\d+))\s*$/);
+  if (!match) return null;
+  const latitude = Number(match[1]);
+  const longitude = Number(match[2]);
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return null;
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return null;
+  return { latitude, longitude };
+}
+
+async function resolveLocationInput(value) {
+  const input = String(value || '').trim();
+  if (!input) throw new Error('请输入地点、地址或坐标');
+  const coordinates = parseCoordinateInput(input);
+  if (coordinates) return coordinates;
+
+  const searchUrl = new URL('https://www.google.com/maps/search/');
+  searchUrl.searchParams.set('api', '1');
+  searchUrl.searchParams.set('query', input);
+  searchUrl.searchParams.set('hl', 'zh-CN');
+  await mapView.webContents.loadURL(searchUrl.toString());
+
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline) {
+    const match = mapView.webContents.getURL().match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+    if (match) {
+      const latitude = Number(match[1]);
+      const longitude = Number(match[2]);
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) return { latitude, longitude };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  }
+  throw new Error('未找到该位置，请输入更完整的地点或“纬度, 经度”');
+}
+
 function mapRouteUrl(destination, waypoints) {
   const origin = `${settings.latitude},${settings.longitude}`;
-  const url = new URL('https://www.google.com/maps/dir/');
-  url.searchParams.set('api', '1');
-  url.searchParams.set('origin', origin);
-  url.searchParams.set('destination', destination);
+  const stops = [origin, ...waypoints, destination].map((value) => encodeURIComponent(value));
+  const url = new URL(`https://www.google.com/maps/dir/${stops.join('/')}/`);
   url.searchParams.set('travelmode', 'driving');
-  if (waypoints.length) url.searchParams.set('waypoints', waypoints.join('|'));
   url.searchParams.set('hl', 'zh-CN');
   return url.toString();
 }
@@ -579,6 +625,16 @@ app.on('window-all-closed', () => app.quit());
 
 ipcMain.handle('get-settings', () => ({ ...settings }));
 
+ipcMain.handle('save-location-input', async (_event, value) => {
+  const input = String(value || '').trim();
+  const resolved = await resolveLocationInput(input);
+  settings = { ...settings, ...resolved, locationLabel: input };
+  saveSettings(settings);
+  await applyLocationOverride();
+  await mapView.webContents.loadURL(mapUrlAtLocation());
+  return { ...settings };
+});
+
 ipcMain.handle('choose-screenshot-directory', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: '选择截图保存位置',
@@ -612,6 +668,11 @@ ipcMain.handle('save-settings', async (_event, payload) => {
     throw new Error('显示时间格式无效');
   }
 
+  const batteryLevel = payload.batteryLevel == null ? settings.batteryLevel : Number(payload.batteryLevel);
+  if (!Number.isFinite(batteryLevel) || batteryLevel < 0 || batteryLevel > 100) {
+    throw new Error('显示电量必须在 0 到 100 之间');
+  }
+
   let avatarDataUrl = settings.avatarDataUrl || '';
   if (typeof payload.avatarDataUrl === 'string') {
     if (payload.avatarDataUrl && !payload.avatarDataUrl.startsWith('data:image/')) {
@@ -623,7 +684,7 @@ ipcMain.handle('save-settings', async (_event, payload) => {
     avatarDataUrl = payload.avatarDataUrl;
   }
 
-  settings = { ...settings, latitude, longitude, timeOverride, avatarDataUrl };
+  settings = { ...settings, latitude, longitude, timeOverride, batteryLevel: Math.round(batteryLevel), avatarDataUrl };
   saveSettings(settings);
   await applyLocationOverride();
   await applyMapAppearance();
@@ -643,7 +704,7 @@ ipcMain.on('open-route', (_event, destination, waypoints) => {
   const trimmed = String(destination || '').trim();
   if (!trimmed) return;
   const normalizedWaypoints = Array.isArray(waypoints)
-    ? waypoints.map((value) => String(value || '').trim()).filter(Boolean).slice(0, 3)
+    ? waypoints.map((value) => String(value || '').trim()).filter(Boolean).slice(0, 9)
     : [];
   setScreen('map');
   mapView.webContents.loadURL(mapRouteUrl(trimmed, normalizedWaypoints));

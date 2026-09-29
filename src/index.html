@@ -25,24 +25,20 @@
           <h1>设置位置</h1>
           <span></span>
         </div>
-        <p class="hint">Google Maps 读取到的“当前位置”将使用这里的坐标，不会读取电脑 GPS。</p>
+        <p class="hint">直接输入地点、地址或“纬度, 经度”。Google Maps 的“当前位置”会使用这里保存的位置。</p>
         <form id="settings-form" class="card">
-          <label>
-            <span>纬度</span>
-            <input id="latitude" name="latitude" type="number" min="-90" max="90" step="any" required />
+          <label class="stacked">
+            <span>当前位置</span>
+            <input id="location-input" autocomplete="off" placeholder="例如：上海博物馆或 31.2304, 121.4737" required />
           </label>
-          <label>
-            <span>经度</span>
-            <input id="longitude" name="longitude" type="number" min="-180" max="180" step="any" required />
-          </label>
-          <button class="primary" type="submit">保存并应用</button>
+          <button class="primary" type="submit">设为当前位置</button>
           <p id="settings-message" class="message"></p>
         </form>
         <div class="presets">
           <p>常用示例</p>
-          <button data-lat="22.3193" data-lng="114.1694">香港</button>
-          <button data-lat="31.2304" data-lng="121.4737">上海</button>
-          <button data-lat="39.9042" data-lng="116.4074">北京</button>
+          <button data-location="22.3193, 114.1694">香港</button>
+          <button data-location="31.2304, 121.4737">上海</button>
+          <button data-location="39.9042, 116.4074">北京</button>
         </div>
         <div class="app-actions">
           <button id="minimize">最小化窗口</button>
@@ -56,14 +52,15 @@
           <h1>路线</h1>
           <span></span>
         </div>
-        <p class="hint">起点是设置中的位置。固定使用驾车路线，可添加最多 3 个途经点。提交后只显示路线。</p>
+        <p class="hint">固定使用驾车路线。当前位置在最上方，目的地在最下方，中间可添加最多 9 个途经点。</p>
         <form id="route-form" class="card">
-          <label class="stacked">
+          <div class="route-current"><span>当前位置</span><strong id="route-current-location"></strong></div>
+          <div id="waypoint-list" class="waypoint-list"></div>
+          <button id="add-waypoint" class="secondary add-waypoint" type="button">＋ 添加途经点</button>
+          <label class="stacked route-destination">
             <span>目的地</span>
             <input id="destination" autocomplete="off" placeholder="例如：香港国际机场" required />
           </label>
-          <div id="waypoint-list" class="waypoint-list"></div>
-          <button id="add-waypoint" class="secondary add-waypoint" type="button">＋ 添加途经点</button>
           <button class="primary" type="submit">显示驾车路线</button>
           <p id="route-message" class="message"></p>
         </form>
@@ -79,6 +76,8 @@
         <form id="display-settings-form" class="card display-settings-card">
           <label class="stacked"><span>显示时间</span><input id="display-time" type="time" step="60" /></label>
           <div class="display-setting-actions"><button id="display-time-reset" class="secondary compact" type="button">恢复系统时间</button></div>
+          <label class="stacked battery-setting"><span>显示电量 <output id="battery-level-value">76%</output></span><input id="battery-level" type="range" min="0" max="100" step="1" value="76" /></label>
+          <div class="display-setting-actions"><button id="battery-level-reset" class="secondary compact" type="button">恢复默认电量</button></div>
           <button class="primary" type="submit">保存显示设置</button>
           <p id="display-settings-message" class="message"></p>
         </form>

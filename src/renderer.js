@@ -6,8 +6,7 @@ const screens = {
 };
 
 const tabs = [...document.querySelectorAll('.tabbar button')];
-const latitude = document.querySelector('#latitude');
-const longitude = document.querySelector('#longitude');
+const locationInput = document.querySelector('#location-input');
 const message = document.querySelector('#settings-message');
 
 function showScreenshotDirectory(directory) {
@@ -27,7 +26,9 @@ function showMap() {
 }
 
 document.querySelector('#tab-map').addEventListener('click', showMap);
-document.querySelector('#tab-route').addEventListener('click', () => {
+document.querySelector('#tab-route').addEventListener('click', async () => {
+  const current = await window.meiMap.getSettings();
+  document.querySelector('#route-current-location').textContent = current.locationLabel || `${current.latitude}, ${current.longitude}`;
   showLocalScreen('route');
   window.meiMap.showSettings();
   document.querySelector('#destination').focus();
@@ -35,8 +36,7 @@ document.querySelector('#tab-route').addEventListener('click', () => {
 
 document.querySelector('#tab-settings').addEventListener('click', async () => {
   const current = await window.meiMap.getSettings();
-  latitude.value = current.latitude;
-  longitude.value = current.longitude;
+  locationInput.value = current.locationLabel || `${current.latitude}, ${current.longitude}`;
   message.textContent = '';
   showLocalScreen('settings');
   window.meiMap.showSettings();
@@ -48,6 +48,8 @@ document.querySelector('#tab-avatar').addEventListener('click', async () => {
   preview.src = current.avatarDataUrl || '';
   preview.classList.toggle('empty', !current.avatarDataUrl);
   document.querySelector('#display-time').value = current.timeOverride || '';
+  document.querySelector('#battery-level').value = current.batteryLevel ?? 76;
+  document.querySelector('#battery-level-value').textContent = `${current.batteryLevel ?? 76}%`;
   document.querySelector('#avatar-message').textContent = '';
   document.querySelector('#screenshot-message').textContent = '';
   showScreenshotDirectory(current.screenshotDirectory);
@@ -66,7 +68,8 @@ document.querySelector('#settings-form').addEventListener('submit', async (event
   message.classList.remove('error');
   message.textContent = '正在保存…';
   try {
-    await window.meiMap.saveSettings({ latitude: latitude.value, longitude: longitude.value });
+    const saved = await window.meiMap.saveLocationInput(locationInput.value);
+    locationInput.value = saved.locationLabel || `${saved.latitude}, ${saved.longitude}`;
     message.textContent = '已保存，新的位置现在生效';
   } catch (error) {
     message.classList.add('error');
@@ -76,22 +79,22 @@ document.querySelector('#settings-form').addEventListener('submit', async (event
 
 document.querySelectorAll('.presets button').forEach((button) => {
   button.addEventListener('click', () => {
-    latitude.value = button.dataset.lat;
-    longitude.value = button.dataset.lng;
+    locationInput.value = button.dataset.location;
   });
 });
 
 const waypointList = document.querySelector('#waypoint-list');
 const addWaypointButton = document.querySelector('#add-waypoint');
 const routeMessage = document.querySelector('#route-message');
-const MAX_WAYPOINTS = 3;
+const MAX_WAYPOINTS = 9;
 
 function refreshWaypointRows() {
   const rows = [...waypointList.querySelectorAll('.waypoint-row')];
   rows.forEach((row, index) => {
     row.querySelector('.waypoint-label').textContent = `途经点 ${index + 1}`;
     row.querySelector('input').placeholder = `例如：中环、尖沙咀或坐标`;
-    row.querySelector('.remove-waypoint').disabled = rows.length === 1;
+    row.querySelector('.move-waypoint-up').disabled = index === 0;
+    row.querySelector('.move-waypoint-down').disabled = index === rows.length - 1;
   });
   addWaypointButton.disabled = rows.length >= MAX_WAYPOINTS;
 }
@@ -100,7 +103,17 @@ function addWaypoint(value = '') {
   if (waypointList.children.length >= MAX_WAYPOINTS) return;
   const row = document.createElement('label');
   row.className = 'stacked waypoint-row';
-  row.innerHTML = `<span class="waypoint-label"></span><span class="waypoint-control"><input class="waypoint-input" autocomplete="off" value="${value.replace(/"/g, '&quot;')}" /><button class="remove-waypoint" type="button" aria-label="删除途经点">×</button></span>`;
+  row.innerHTML = `<span class="waypoint-label"></span><span class="waypoint-control"><input class="waypoint-input" autocomplete="off" value="${value.replace(/"/g, '&quot;')}" /><span class="waypoint-actions"><button class="move-waypoint-up" type="button" aria-label="上移途经点">↑</button><button class="move-waypoint-down" type="button" aria-label="下移途经点">↓</button><button class="remove-waypoint" type="button" aria-label="删除途经点">×</button></span></span>`;
+  row.querySelector('.move-waypoint-up').addEventListener('click', () => {
+    const previous = row.previousElementSibling;
+    if (previous) waypointList.insertBefore(row, previous);
+    refreshWaypointRows();
+  });
+  row.querySelector('.move-waypoint-down').addEventListener('click', () => {
+    const next = row.nextElementSibling;
+    if (next) waypointList.insertBefore(next, row);
+    refreshWaypointRows();
+  });
   row.querySelector('.remove-waypoint').addEventListener('click', () => {
     row.remove();
     refreshWaypointRows();
@@ -110,7 +123,6 @@ function addWaypoint(value = '') {
 }
 
 addWaypointButton.addEventListener('click', () => addWaypoint());
-addWaypoint();
 
 document.querySelector('#route-form').addEventListener('submit', (event) => {
   event.preventDefault();
@@ -185,6 +197,16 @@ document.querySelector('#display-time-reset').addEventListener('click', () => {
   document.querySelector('#display-settings-message').textContent = '将使用系统时间';
 });
 
+document.querySelector('#battery-level').addEventListener('input', (event) => {
+  document.querySelector('#battery-level-value').textContent = `${event.target.value}%`;
+});
+
+document.querySelector('#battery-level-reset').addEventListener('click', () => {
+  document.querySelector('#battery-level').value = '76';
+  document.querySelector('#battery-level-value').textContent = '76%';
+  document.querySelector('#display-settings-message').textContent = '已恢复默认电量';
+});
+
 document.querySelector('#display-settings-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const displayMessage = document.querySelector('#display-settings-message');
@@ -193,6 +215,7 @@ document.querySelector('#display-settings-form').addEventListener('submit', asyn
   try {
     await window.meiMap.saveSettings({
       timeOverride: document.querySelector('#display-time').value,
+      batteryLevel: document.querySelector('#battery-level').value,
     });
     displayMessage.textContent = '显示设置已应用';
   } catch (error) {

@@ -135,13 +135,19 @@ button { cursor: pointer; }
 .app-actions button { border: 0; border-radius: 12px; background: white; color: #007aff; padding: 12px 8px; }
 .app-actions .danger { color: #d70015; }
 
- .waypoint-list { margin-top: 2px; }
+.route-current { padding: 14px 4px 13px; border-bottom: 1px solid #ececef; }
+.route-current span { display: block; color: #666; font-size: 13px; }
+.route-current strong { display: block; margin-top: 6px; color: #1c1c1e; font-size: 17px; font-weight: 500; overflow-wrap: anywhere; }
+.waypoint-list { margin-top: 2px; }
 .waypoint-row { border-top: 1px solid #ececef; }
 .waypoint-control { display: flex; align-items: center; gap: 8px; }
 .waypoint-control input { min-width: 0; flex: 1; }
-.remove-waypoint { width: 28px; height: 28px; border: 0; border-radius: 50%; background: #f2f2f7; color: #8e8e93; font-size: 22px; line-height: 24px; }
-.remove-waypoint:disabled { opacity: .35; cursor: default; }
+.waypoint-actions { display: flex !important; align-items: center; gap: 4px; }
+.waypoint-actions button { width: 27px; height: 27px; padding: 0; border: 0; border-radius: 50%; background: #f2f2f7; color: #8e8e93; font-size: 16px; line-height: 27px; }
+.waypoint-actions .remove-waypoint { color: #d70015; font-size: 20px; }
+.waypoint-actions button:disabled { opacity: .3; cursor: default; }
 .secondary.add-waypoint { margin-top: 12px; color: #007aff; }
+.route-destination { margin-top: 12px; border-top: 1px solid #ececef; }
 
 .tabbar {
   position: absolute;
@@ -176,6 +182,10 @@ button { cursor: pointer; }
 .display-settings-card { padding: 4px 14px 14px; }
 .display-setting-actions { display: flex; justify-content: flex-end; padding: 10px 0 2px; }
 .secondary.compact { width: auto; margin: 0; padding: 8px 12px; color: #007aff; }
+.battery-setting { margin-top: 8px; border-top: 1px solid #ececef; }
+.battery-setting > span { display: flex; justify-content: space-between; align-items: center; }
+.battery-setting output { color: #1c1c1e; font-size: 15px; }
+.battery-setting input[type="range"] { padding: 14px 0 6px; accent-color: #007aff; }
 .avatar-hint { margin: 18px 2px 0; }
 .screenshot-card { padding: 15px 14px 12px; }
 .shortcut-row { display: flex; align-items: center; justify-content: space-between; padding-bottom: 14px; border-bottom: 1px solid #ececef; }
