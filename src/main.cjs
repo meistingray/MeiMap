@@ -18,6 +18,7 @@ let mapView;
 let settings;
 let currentScreen = 'map';
 let smokeTimer;
+let lastGeocodeRequestAt = 0;
 
 function settingsPath() {
   return path.join(app.getPath('userData'), 'settings.json');
@@ -36,6 +37,23 @@ function loadSettings() {
 function saveSettings(next) {
   fs.mkdirSync(app.getPath('userData'), { recursive: true });
   fs.writeFileSync(settingsPath(), JSON.stringify(next, null, 2), 'utf8');
+}
+
+function geocodeCachePath() {
+  return path.join(app.getPath('userData'), 'geocode-cache.json');
+}
+
+function loadGeocodeCache() {
+  try {
+    return JSON.parse(fs.readFileSync(geocodeCachePath(), 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function saveGeocodeCache(cache) {
+  fs.mkdirSync(app.getPath('userData'), { recursive: true });
+  fs.writeFileSync(geocodeCachePath(), JSON.stringify(cache, null, 2), 'utf8');
 }
 
 function isGoogleMapsUrl(rawUrl) {
@@ -520,48 +538,40 @@ async function resolveLocationInput(value) {
   const coordinates = parseCoordinateInput(input);
   if (coordinates) return coordinates;
 
-  const resolverWindow = new BrowserWindow({
-    show: false,
-    width: 480,
-    height: 800,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
+  const cacheKey = input.toLocaleLowerCase('zh-CN');
+  const cache = loadGeocodeCache();
+  const cached = cache[cacheKey];
+  if (cached && Number.isFinite(cached.latitude) && Number.isFinite(cached.longitude)) {
+    return { latitude: cached.latitude, longitude: cached.longitude };
+  }
+
+  const waitTime = Math.max(0, 1000 - (Date.now() - lastGeocodeRequestAt));
+  if (waitTime) await new Promise((resolve) => setTimeout(resolve, waitTime));
+  lastGeocodeRequestAt = Date.now();
+
+  const endpoint = process.env.MEIMAP_GEOCODER_URL || 'https://nominatim.openstreetmap.org/search';
+  const searchUrl = new URL(endpoint);
+  searchUrl.searchParams.set('q', input);
+  searchUrl.searchParams.set('format', 'jsonv2');
+  searchUrl.searchParams.set('limit', '1');
+  searchUrl.searchParams.set('accept-language', 'zh-CN');
+  const response = await fetch(searchUrl, {
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'MeiMap/0.1.0 (personal desktop app; https://github.com/meistingray/MeiMap)',
     },
   });
-  resolverWindow.webContents.setUserAgent(mapView.webContents.getUserAgent());
-
-  try {
-    const searchUrl = new URL('https://www.google.com/maps/search/');
-    searchUrl.searchParams.set('api', '1');
-    searchUrl.searchParams.set('query', input);
-    searchUrl.searchParams.set('hl', 'zh-CN');
-    await resolverWindow.loadURL(searchUrl.toString());
-
-    const deadline = Date.now() + 15000;
-    let fallbackCoordinates = null;
-    while (Date.now() < deadline) {
-      const currentUrl = resolverWindow.webContents.getURL();
-      const placeMatch = currentUrl.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
-      if (placeMatch) {
-        return { latitude: Number(placeMatch[1]), longitude: Number(placeMatch[2]) };
-      }
-      const alternatePlaceMatch = currentUrl.match(/!2d(-?\d+(?:\.\d+)?)!3d(-?\d+(?:\.\d+)?)/);
-      if (alternatePlaceMatch) {
-        return { latitude: Number(alternatePlaceMatch[2]), longitude: Number(alternatePlaceMatch[1]) };
-      }
-      const centerMatch = currentUrl.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
-      if (centerMatch) {
-        fallbackCoordinates = { latitude: Number(centerMatch[1]), longitude: Number(centerMatch[2]) };
-      }
-      await new Promise((resolve) => setTimeout(resolve, 350));
-    }
-    if (fallbackCoordinates) return fallbackCoordinates;
+  if (!response.ok) throw new Error(`地点搜索暂时不可用（${response.status}）`);
+  const results = await response.json();
+  const result = Array.isArray(results) ? results[0] : null;
+  const latitude = Number(result?.lat);
+  const longitude = Number(result?.lon);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     throw new Error('未找到该位置，请输入更完整的地点或“纬度, 经度”');
-  } finally {
-    if (!resolverWindow.isDestroyed()) resolverWindow.destroy();
   }
+  cache[cacheKey] = { latitude, longitude };
+  saveGeocodeCache(cache);
+  return { latitude, longitude };
 }
 
 function mapRouteUrl(destination, waypoints) {
@@ -638,6 +648,10 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
   mapView.webContents.loadURL(mapUrlAtLocation());
 }
 
