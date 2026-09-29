@@ -119,6 +119,8 @@ async function applyMapAppearance() {
         letter-spacing: -.35px;
         white-space: nowrap;
         pointer-events: none;
+        transform: scaleX(1.08);
+        transform-origin: left center;
         -webkit-text-stroke: 2px #fff;
         paint-order: stroke fill;
         text-shadow: 0 1px 1px rgba(60, 64, 67, .18);
@@ -518,23 +520,48 @@ async function resolveLocationInput(value) {
   const coordinates = parseCoordinateInput(input);
   if (coordinates) return coordinates;
 
-  const searchUrl = new URL('https://www.google.com/maps/search/');
-  searchUrl.searchParams.set('api', '1');
-  searchUrl.searchParams.set('query', input);
-  searchUrl.searchParams.set('hl', 'zh-CN');
-  await mapView.webContents.loadURL(searchUrl.toString());
+  const resolverWindow = new BrowserWindow({
+    show: false,
+    width: 480,
+    height: 800,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  resolverWindow.webContents.setUserAgent(mapView.webContents.getUserAgent());
 
-  const deadline = Date.now() + 15000;
-  while (Date.now() < deadline) {
-    const match = mapView.webContents.getURL().match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
-    if (match) {
-      const latitude = Number(match[1]);
-      const longitude = Number(match[2]);
-      if (Number.isFinite(latitude) && Number.isFinite(longitude)) return { latitude, longitude };
+  try {
+    const searchUrl = new URL('https://www.google.com/maps/search/');
+    searchUrl.searchParams.set('api', '1');
+    searchUrl.searchParams.set('query', input);
+    searchUrl.searchParams.set('hl', 'zh-CN');
+    await resolverWindow.loadURL(searchUrl.toString());
+
+    const deadline = Date.now() + 15000;
+    let fallbackCoordinates = null;
+    while (Date.now() < deadline) {
+      const currentUrl = resolverWindow.webContents.getURL();
+      const placeMatch = currentUrl.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+      if (placeMatch) {
+        return { latitude: Number(placeMatch[1]), longitude: Number(placeMatch[2]) };
+      }
+      const alternatePlaceMatch = currentUrl.match(/!2d(-?\d+(?:\.\d+)?)!3d(-?\d+(?:\.\d+)?)/);
+      if (alternatePlaceMatch) {
+        return { latitude: Number(alternatePlaceMatch[2]), longitude: Number(alternatePlaceMatch[1]) };
+      }
+      const centerMatch = currentUrl.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+      if (centerMatch) {
+        fallbackCoordinates = { latitude: Number(centerMatch[1]), longitude: Number(centerMatch[2]) };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 350));
     }
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    if (fallbackCoordinates) return fallbackCoordinates;
+    throw new Error('未找到该位置，请输入更完整的地点或“纬度, 经度”');
+  } finally {
+    if (!resolverWindow.isDestroyed()) resolverWindow.destroy();
   }
-  throw new Error('未找到该位置，请输入更完整的地点或“纬度, 经度”');
 }
 
 function mapRouteUrl(destination, waypoints) {
