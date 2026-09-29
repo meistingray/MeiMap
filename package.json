@@ -2,7 +2,7 @@
   "name": "meimap",
   "version": "0.2.0",
   "private": true,
-  "description": "A tiny personal Google Maps desktop wrapper with a configurable location.",
+  "description": "MeiMap：支持模拟定位与多途经点路线的 iPhone 风格 Windows 地图应用。 / An iPhone-inspired Windows map app with simulated location and multi-stop routes.",
   "main": "src/main.cjs",
   "scripts": {
     "start": "electron .",
