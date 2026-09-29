@@ -23,8 +23,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Check main process syntax
-        run: node --check src/main.cjs
+      - name: Check JavaScript syntax
+        run: |
+          node --check src/main.cjs
+          node --check src/preload.cjs
+          node --check src/renderer.js
 
       - name: Build portable executable
         run: npm run dist
