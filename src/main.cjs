@@ -745,7 +745,7 @@ ipcMain.on('open-route', (_event, destination, waypoints) => {
   const trimmed = String(destination || '').trim();
   if (!trimmed) return;
   const normalizedWaypoints = Array.isArray(waypoints)
-    ? waypoints.map((value) => String(value || '').trim()).filter(Boolean).slice(0, 9)
+    ? waypoints.map((value) => String(value || '').trim()).filter(Boolean).slice(0, 24)
     : [];
   setScreen('map');
   mapView.webContents.loadURL(mapRouteUrl(trimmed, normalizedWaypoints));

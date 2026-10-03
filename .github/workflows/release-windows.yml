@@ -1,4 +1,4 @@
-name: Release MeiMap v0.2.0
+name: Release MeiMap v0.2.1
 
 on:
   push:
@@ -38,4 +38,4 @@ jobs:
         run: |
           $asset = Get-ChildItem -Path dist -Filter *.exe | Select-Object -First 1
           if (-not $asset) { throw "Portable EXE was not generated." }
-          gh release create v0.2.0 "$($asset.FullName)" --target $env:GITHUB_SHA --title "MeiMap v0.2.0" --notes "新增地点或坐标形式的模拟位置设置；路线调整为当前位置、最多九个途经点和目的地的自然顺序；新增电量模拟、完整窗口截图和自定义截图目录；改进 MeiMap 地图标识，并加入版权与地点搜索来源信息。" --latest
+          gh release create v0.2.1 "$($asset.FullName)" --target $env:GITHUB_SHA --title "MeiMap v0.2.1" --notes "途经点输入和提交上限提高到 24 个；Google Maps 网页实际接受的数量仍可能受平台限制。本版尚未加入 iPhone Duo 显示模式。" --latest

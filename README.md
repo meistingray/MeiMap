@@ -19,7 +19,7 @@ MeiMap 是一款供个人使用的 Windows 地图展示应用。它在紧凑的 
   - 地点搜索结果保存在本机缓存中
 - 驾车路线展示
   - 当前位置固定为起点
-  - 最多 9 个途经点
+  - 最多 24 个途经点（Google Maps 网页实际接受的数量可能受平台限制）
   - 途经点支持添加、删除和调整顺序
   - 目的地固定显示在路线设置底部
 - 自定义顶部显示：时间、电量和头像
@@ -93,7 +93,7 @@ Download the latest Windows Portable EXE from [GitHub Releases](https://github.c
   - Place-search results are cached locally
 - Driving route display
   - The simulated location is always the starting point
-  - Up to nine waypoints
+  - Enter up to 24 waypoints (the Google Maps website may impose its own platform limits)
   - Add, remove, and reorder waypoints
   - The destination remains at the bottom of the route form
 - Custom status display: time, battery level, and avatar

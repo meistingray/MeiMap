@@ -86,7 +86,7 @@ document.querySelectorAll('.presets button').forEach((button) => {
 const waypointList = document.querySelector('#waypoint-list');
 const addWaypointButton = document.querySelector('#add-waypoint');
 const routeMessage = document.querySelector('#route-message');
-const MAX_WAYPOINTS = 9;
+const MAX_WAYPOINTS = 24;
 
 function refreshWaypointRows() {
   const rows = [...waypointList.querySelectorAll('.waypoint-row')];
