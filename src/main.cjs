@@ -2,6 +2,10 @@ const { app, BrowserWindow, WebContentsView, Notification, desktopCapturer, dial
 const fs = require('node:fs');
 const path = require('node:path');
 
+if (process.argv.includes('--smoke-test')) {
+  app.setPath('userData', path.join(app.getPath('temp'), 'MeiMap-smoke-' + process.pid));
+}
+
 const DEFAULT_SETTINGS = {
   latitude: 22.3193,
   longitude: 114.1694,
@@ -11,6 +15,7 @@ const DEFAULT_SETTINGS = {
   batteryLevel: 76,
   avatarDataUrl: '',
   screenshotDirectory: '',
+  displayMode: 'phone',
 };
 
 let mainWindow;
@@ -18,6 +23,7 @@ let mapView;
 let settings;
 let currentScreen = 'map';
 let smokeTimer;
+let smokeRunning = false;
 let lastGeocodeRequestAt = 0;
 
 function settingsPath() {
@@ -39,23 +45,6 @@ function saveSettings(next) {
   fs.writeFileSync(settingsPath(), JSON.stringify(next, null, 2), 'utf8');
 }
 
-function geocodeCachePath() {
-  return path.join(app.getPath('userData'), 'geocode-cache.json');
-}
-
-function loadGeocodeCache() {
-  try {
-    return JSON.parse(fs.readFileSync(geocodeCachePath(), 'utf8'));
-  } catch {
-    return {};
-  }
-}
-
-function saveGeocodeCache(cache) {
-  fs.mkdirSync(app.getPath('userData'), { recursive: true });
-  fs.writeFileSync(geocodeCachePath(), JSON.stringify(cache, null, 2), 'utf8');
-}
-
 function isGoogleMapsUrl(rawUrl) {
   try {
     const hostname = new URL(rawUrl).hostname;
@@ -68,7 +57,21 @@ function isGoogleMapsUrl(rawUrl) {
 function layoutMap() {
   if (!mainWindow || !mapView) return;
   const [width, height] = mainWindow.getContentSize();
-  mapView.setBounds({ x: 0, y: 0, width, height: height - 80 });
+  const duo = settings.displayMode === 'duo';
+  mapView.setBounds({ x: 0, y: 0, width, height: duo ? height : height - 80 });
+}
+
+function applyDisplayMode() {
+  const duo = settings.displayMode === 'duo';
+  mainWindow.setMinimumSize(duo ? 710 : 390, duo ? 500 : 720);
+  mainWindow.setMaximumSize(duo ? 1400 : 520, 1600);
+  const work = screen.getDisplayMatching(mainWindow.getBounds()).workArea;
+  mainWindow.setSize(duo ? 890 : 430, duo ? 626 : 880);
+  const bounds = mainWindow.getBounds();
+  mainWindow.setPosition(Math.max(work.x, Math.min(bounds.x, work.x + work.width - bounds.width)),
+    Math.max(work.y, Math.min(bounds.y, work.y + work.height - bounds.height)));
+  layoutMap();
+  mainWindow.webContents.send('display-mode-changed', settings.displayMode);
 }
 
 async function applyLocationOverride() {
@@ -266,7 +269,67 @@ async function applyMapAppearance() {
         object-fit: cover;
       }
 
+      html[data-meimap-display="duo"] #meimap-statusbar {
+        left: auto; right: 12px; top: 16px; width: 66px; height: auto;
+        padding: 0; flex-direction: column; gap: 8px; font-size: 15px;
+      }
+      html[data-meimap-display="duo"] #meimap-status-icons { gap: 5px; }
+      #meimap-duo-status { display: none; }
+      html[data-meimap-display="duo"] #meimap-duo-status { display: block; }
+      html[data-meimap-display="duo"] #meimap-duo-status svg { display: block; width: 36px; height: 36px; }
+      html[data-meimap-display="duo"] #meimap-status-icons { display: none; }
+      html[data-meimap-display="duo"] #meimap-map-time { order: 0; }
+      html[data-meimap-display="duo"] #meimap-duo-status { order: 1; }
+      html[data-meimap-display="duo"] #meimap-location-button { right: 96px; }
+      #meimap-duo-nav {
+        position: fixed; right: 12px; bottom: 20px; width: 66px;
+        z-index: 100005; display: grid; padding: 8px 4px;
+        border-radius: 34px; background: rgba(248, 248, 250, .72);
+        backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+        box-shadow: 0 2px 12px rgba(35, 45, 55, .16), inset 0 0 0 1px rgba(255,255,255,.7);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      #meimap-duo-nav button {
+        height: 60px; padding: 4px 0; border: 0; background: transparent;
+        color: #5f6368; font: inherit; font-size: 11px; cursor: pointer;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      }
+      #meimap-duo-nav .tab-icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      #meimap-duo-nav button.active { color: #007aff; }
+      #meimap-duo-nav .active-pill { width: 46px; height: 30px; border-radius: 18px; display: grid; place-items: center; }
+      #meimap-duo-nav button.active { border-radius: 24px; background: rgba(199,237,255,.8); }
+      #meimap-duo-nav button.active .tab-icon { fill: currentColor; }
+      html[data-meimap-display="duo"] #app > .Q6cQSe {
+        left: 0 !important;
+        right: 0 !important;
+        transform: none !important;
+        width: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+      }
+      html[data-meimap-display="duo"] .l1KbHe.pVMw6d {
+        background: transparent !important;
+        box-shadow: none !important;
+        width: 400px !important;
+        max-width: calc(100vw - 100px) !important;
+        transform: translateY(12px) !important;
+      }
+      html[data-meimap-display="duo"] .l1KbHe .bVzuaf {
+        background: transparent !important;
+      }
+      html[data-meimap-display="duo"] #meimap-avatar-image {
+        top: 24px;
+        right: auto;
+        left: 350px;
+      }
+
       html[data-meimap-route="true"] .l1KbHe.pVMw6d,
+      html[data-meimap-route="true"] .ml-directions-searchbox-parent,
+      html[data-meimap-route="true"] .ml-pane-container,
+      html[data-meimap-route="true"] .ml-route-options-picker-container,
+      html[data-meimap-route="true"] .ml-directions-more-options-container,
+      html[data-meimap-route="true"] .FovMle,
+      html[data-meimap-route="true"] #meimap-avatar-image,
       html[data-meimap-route="true"] .ml-persistent-promo-banner,
       html[data-meimap-route="true"] .ml-assistive-chips,
       html[data-meimap-route="true"] .P8NcLd.visible,
@@ -274,13 +337,27 @@ async function applyMapAppearance() {
         display: none !important;
       }
 
-    `);
+      html[data-meimap-route="true"] #app > .Q6cQSe {
+        display: block !important;
+        left: 0 !important; right: 0 !important; width: 100% !important;
+        top: 0 !important; height: 100vh !important; min-height: 100vh !important;
+        max-width: none !important; max-height: none !important; transform: none !important;
+      }
+      html[data-meimap-route="true"] #app .bIrfod.nwn5d,
+      html[data-meimap-route="true"] #app .vMSalc.nwn5d,
+      html[data-meimap-route="true"] #app > .Q6cQSe .nwn5d {
+        height: 100% !important;
+      }
+
+    `, { cssOrigin: 'author' });
 
     const smokeAvatar = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" fill="#f4a261"/><circle cx="64" cy="52" r="28" fill="#264653"/><path d="M22 128c4-34 23-50 42-50s38 16 42 50" fill="#2a9d8f"/></svg>');
     const selectedAvatar = process.argv.includes('--smoke-test') ? smokeAvatar : (settings.avatarDataUrl || '');
     const avatarDataUrl = JSON.stringify(selectedAvatar);
     const currentLocationUrl = JSON.stringify(mapUrlAtLocation());
     const displayTime = JSON.stringify(settings.timeOverride || '');
+    const duoStatusMarkup = JSON.stringify(fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').match(/<svg class="duo-status"[\s\S]*?<\/svg>/)[0]);
+    const navigationMarkup = JSON.stringify(fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').match(/<nav class="tabbar"[^>]*>([\s\S]*?)<\/nav>/)[1]);
     const batteryLevel = Math.max(0, Math.min(100, Number(settings.batteryLevel ?? 76)));
     const routeMode = (() => {
       try {
@@ -290,6 +367,8 @@ async function applyMapAppearance() {
       }
     })();
     await mapView.webContents.executeJavaScript(`(() => {
+      document.documentElement.dataset.meimapDisplay = ${JSON.stringify(settings.displayMode)};
+      window.dispatchEvent(new Event('resize'));
       document.querySelector('#meimap-category-row')?.remove();
 
       if (!window.__meiMapDismissTimer) {
@@ -316,6 +395,26 @@ async function applyMapAppearance() {
       }
 
       const ensureMeiMapOverlays = () => {
+      let duoNav = document.querySelector('#meimap-duo-nav');
+      if (document.documentElement.dataset.meimapDisplay === 'duo') {
+        if (!duoNav) {
+          duoNav = document.createElement('nav');
+          duoNav.id = 'meimap-duo-nav';
+          duoNav.setAttribute('aria-label', '主导航');
+          duoNav.innerHTML = ${navigationMarkup};
+          duoNav.addEventListener('click', (event) => {
+            const button = event.target.closest('button');
+            const panel = { 'tab-settings': 'settings', 'tab-route': 'route', 'tab-avatar': 'avatar' }[button?.id];
+            if (panel) window.meiMapControls.openPanel(panel);
+          });
+          document.body.appendChild(duoNav);
+        }
+        duoNav.querySelector('#tab-map').classList.toggle('active', !${routeMode});
+        duoNav.querySelector('#tab-route').classList.toggle('active', ${routeMode});
+      } else {
+        duoNav?.remove();
+      }
+
       let brandLabel = document.querySelector('#meimap-brand-label');
       if (!brandLabel) {
         brandLabel = document.createElement('div');
@@ -353,6 +452,16 @@ async function applyMapAppearance() {
       window.__meiMapDisplayTime = ${displayTime};
       window.__meiMapUpdateTime?.();
       const shownBatteryLevel = ${batteryLevel};
+      let duoStatus = document.querySelector('#meimap-duo-status');
+      if (!duoStatus) {
+        duoStatus = document.createElement('span');
+        duoStatus.id = 'meimap-duo-status';
+        duoStatus.innerHTML = ${duoStatusMarkup};
+        document.querySelector('#meimap-statusbar').appendChild(duoStatus);
+      }
+      const duoBattery = duoStatus.querySelector('.duo-battery-level');
+      duoBattery.setAttribute('stroke-dasharray', shownBatteryLevel + ' 100');
+      duoBattery.style.color = shownBatteryLevel <= 20 ? '#ff3b30' : '';
       const battery = document.querySelector('#meimap-battery');
       const batteryFill = document.querySelector('#meimap-battery-fill');
       if (battery && batteryFill) {
@@ -363,12 +472,18 @@ async function applyMapAppearance() {
       const isRouteMode = ${routeMode};
       document.documentElement.dataset.meimapRoute = isRouteMode ? 'true' : 'false';
       const hideRouteElement = (node) => {
+        if (node.closest('[id^="meimap-"]')) return;
+        if (node.matches('button,[role="button"],input')) node.style.setProperty('display', 'none', 'important');
+        if (node.closest('.Q6cQSe')) return;
         let current = node;
         for (let depth = 0; current && current !== document.body && depth < 8; depth += 1, current = current.parentElement) {
           const rect = current.getBoundingClientRect();
           const style = getComputedStyle(current);
           const positioned = style.position === 'fixed' || style.position === 'absolute';
-          if (positioned && rect.width > innerWidth * .55 && rect.height > 36 && rect.height < innerHeight * .72) {
+          if (current.matches('#app,.Q6cQSe,.bIrfod,.vMSalc,canvas') || current.querySelector('canvas,.bIrfod,.vMSalc')
+            || current.closest('#meimap-duo-nav,#meimap-statusbar')) continue;
+          const bottomPanel = rect.width > innerWidth * .55 && rect.height > 36 && rect.height < innerHeight * .72;
+          if (positioned && bottomPanel) {
             current.style.setProperty('display', 'none', 'important');
             return;
           }
@@ -376,11 +491,29 @@ async function applyMapAppearance() {
       };
       const hideRouteChrome = () => {
         if (!isRouteMode) return;
+        document.querySelectorAll('.FovMle').forEach((card) => {
+          for (let overlay = card.parentElement; overlay && overlay !== document.body; overlay = overlay.parentElement) {
+            if (overlay.matches('#app,.Q6cQSe') || overlay.querySelector('canvas,.bIrfod,.vMSalc')) break;
+            const r = overlay.getBoundingClientRect();
+            const position = getComputedStyle(overlay).position;
+            if (overlay.getAttribute('role') === 'dialog' || (['fixed', 'absolute'].includes(position) && r.width > innerWidth * .8 && r.height > innerHeight * .8)) {
+              overlay.style.setProperty('display', 'none', 'important');
+              break;
+            }
+          }
+        });
+        document.querySelectorAll('.ml-directions-searchbox-parent,.ml-pane-container,.ml-route-options-picker-container,.ml-directions-more-options-container,.FovMle').forEach((panel) => panel.style.setProperty('display', 'none', 'important'));
+        const map = document.querySelector('#app > .Q6cQSe');
+        if (map) {
+          for (const [property, value] of Object.entries({ display: 'block', transition: 'none', animation: 'none', transform: 'none', left: '0px', right: '0px', width: '100%', 'max-width': 'none', 'max-height': 'none' })) {
+            map.style.setProperty(property, value, 'important');
+          }
+        }
         const patterns = [
           /切换到应用|在应用中打开|获取实时路况|路线选项|到达时间|open in app|get real-time traffic|directions options/i,
           /^开始$|^start$/i,
           /^驾车$|^步行$|^公交$|^骑行$|^driving$|^walking$|^transit$|^bicycling$/i,
-          /\b\d+\s*min\b|\d+\s*分钟/
+          /[0-9]+[ ]*(分钟|小时|天|minutes?|mins?|hours?|hrs?|days?)/i
         ];
         document.querySelectorAll('button,[role="button"],input,[aria-label],p,span,div').forEach((node) => {
           const text = ((node.getAttribute('aria-label') || '') + ' ' + (node.innerText || '') + ' ' + (node.value || '')).trim();
@@ -390,10 +523,10 @@ async function applyMapAppearance() {
           const rect = input.getBoundingClientRect();
           if (rect.top < 210 && rect.width > 180) hideRouteElement(input);
         });
-        window.dispatchEvent(new Event('resize'));
       };
       if (isRouteMode) {
         hideRouteChrome();
+        window.__meiMapHideRouteChrome = hideRouteChrome;
         if (!window.__meiMapRouteObserver) {
           let routeHideTimer;
           window.__meiMapRouteObserver = new MutationObserver(() => {
@@ -432,9 +565,12 @@ async function applyMapAppearance() {
       };
 
       ensureMeiMapOverlays();
-      if (!window.__meiMapOverlayTimer) {
-        window.__meiMapOverlayTimer = setInterval(ensureMeiMapOverlays, 1000);
-      }
+      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      clearInterval(window.__meiMapOverlayTimer);
+      window.__meiMapOverlayTimer = setInterval(() => {
+        ensureMeiMapOverlays();
+        if (${routeMode}) window.__meiMapHideRouteChrome?.();
+      }, 1000);
     })()`);
   } catch (error) {
     console.error('Could not apply map appearance:', error.message);
@@ -443,10 +579,66 @@ async function applyMapAppearance() {
 
 async function runSmokeCapture() {
   if (!process.argv.includes('--smoke-test')) return;
+  if (smokeRunning) return;
   if (smokeTimer) clearTimeout(smokeTimer);
   smokeTimer = setTimeout(async () => {
+    smokeRunning = true;
     try {
       const outputDir = app.getAppPath();
+      if (process.argv.includes('--smoke-route')) {
+        for (const mode of [settings.displayMode]) {
+          await applyMapAppearance();
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          const routeLayout = await mapView.webContents.executeJavaScript(`(() => {
+            const visible = el => {
+              if (!el) return false;
+              const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
+              return r.width > 2 && r.height > 2 && r.right > 0 && r.bottom > 0 && r.left < innerWidth && r.top < innerHeight
+                && s.visibility !== 'hidden' && s.opacity !== '0' && s.clip !== 'rect(0px, 0px, 0px, 0px)';
+            };
+            const map = document.querySelector('#app > .Q6cQSe').getBoundingClientRect();
+            const panels = [...document.querySelectorAll('.ml-directions-searchbox-parent,.ml-pane-container,.ml-route-options-picker-container,.ml-directions-more-options-container,.FovMle')];
+            const residual = [...document.querySelectorAll('button,input,span,p')].filter(el => {
+              if (!visible(el) || el.closest('[id^="meimap-"]')) return false;
+              return /到达时间|切换到应用|在应用中打开|获取实时路况|^[ ]*开始[ ]*$|[0-9]+[ ]*(分钟|小时|天|minutes?|mins?|hours?|hrs?|days?)/i.test((el.innerText || '') + (el.getAttribute('aria-label') || ''));
+            }).map(el => (el.innerText || el.getAttribute('aria-label') || '').slice(0,60));
+            const mapElement = document.querySelector('#app > .Q6cQSe');
+            return {dataset:{...document.documentElement.dataset},transform:getComputedStyle(mapElement).transform,left:getComputedStyle(mapElement).left,translate:getComputedStyle(mapElement).translate,mapLeft:map.left, mapWidth:map.width, width:innerWidth, visiblePanels:panels.filter(visible).length, residual,
+              mapVisible:visible(document.querySelector('.vMSalc')), brandingVisible:visible(document.querySelector('.ml-branding-icon-google-logo-on-map'))};
+          })()`);
+          if (routeLayout.visiblePanels || routeLayout.residual.length || !routeLayout.mapVisible || Math.abs(routeLayout.mapLeft) > 1
+            || Math.abs(routeLayout.mapWidth - routeLayout.width) > 1) throw new Error('Route check failed: ' + mode + ' ' + JSON.stringify(routeLayout));
+          const routeImage = await captureWindowImage();
+          const bitmap = routeImage.toBitmap();
+          let routePixels = 0;
+          for (let i = 0; i < bitmap.length; i += 4) {
+            if (bitmap[i] > 120 && bitmap[i + 1] < 100 && bitmap[i + 2] < 100) routePixels += 1;
+          }
+          fs.writeFileSync(path.join(outputDir, 'smoke-route-' + mode + '.png'), routeImage.toPNG());
+          if (routePixels < 30) throw new Error('Route line not rendered: ' + mode + ' ' + JSON.stringify(routeImage.getSize()));
+          console.log('ROUTE_CHECK_OK', mode, JSON.stringify(routeLayout));
+        }
+      }
+      if (process.argv.includes('--smoke-duo') && !process.argv.includes('--smoke-route')) {
+        const layout = await mapView.webContents.executeJavaScript(`(() => {
+          const nav = document.querySelector('#meimap-duo-nav');
+          const map = document.querySelector('#app > .Q6cQSe').getBoundingClientRect();
+          return { buttons: nav?.querySelectorAll('button').length, mapLeft: map.left, mapWidth: map.width,
+            width: innerWidth, statusBackground: getComputedStyle(document.querySelector('#meimap-statusbar')).backgroundColor,
+            searchBackdrop: getComputedStyle(document.querySelector('.l1KbHe .bVzuaf')).backgroundColor,
+            searchBackground: getComputedStyle(document.querySelector('.l1KbHe .qTCCZ')).backgroundColor };
+        })()`);
+        if (layout.buttons !== 4 || layout.mapLeft !== 0 || Math.abs(layout.mapWidth - layout.width) > 1
+          || layout.statusBackground !== 'rgba(0, 0, 0, 0)' || layout.searchBackdrop !== 'rgba(0, 0, 0, 0)'
+          || layout.searchBackground !== 'rgb(255, 255, 255)') throw new Error('Duo layout check failed: ' + JSON.stringify(layout));
+        await mapView.webContents.executeJavaScript("document.querySelector('#meimap-duo-nav #tab-settings').click()");
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const panelOpened = await mainWindow.webContents.executeJavaScript("!document.querySelector('#settings-screen').classList.contains('hidden')");
+        if (!panelOpened || currentScreen === 'map') throw new Error('Floating navigation did not open Saved');
+        await mainWindow.webContents.executeJavaScript("document.querySelector('#settings-back').click()");
+        await new Promise((resolve) => setTimeout(resolve, 1800));
+        console.log('DUO_CHECK_OK', JSON.stringify(layout));
+      }
       let shellImage = await mainWindow.webContents.capturePage();
       let mapImage = await mapView.webContents.capturePage();
       if (shellImage.isEmpty() || mapImage.isEmpty()) {
@@ -458,9 +650,12 @@ async function runSmokeCapture() {
       fs.writeFileSync(path.join(outputDir, 'smoke-map.png'), mapImage.toPNG());
       const windowSources = await desktopCapturer.getSources({
         types: ['window'],
-        thumbnailSize: { width: 645, height: 1320 },
+        thumbnailSize: {
+          width: Math.round(mainWindow.getBounds().width * screen.getDisplayMatching(mainWindow.getBounds()).scaleFactor),
+          height: Math.round(mainWindow.getBounds().height * screen.getDisplayMatching(mainWindow.getBounds()).scaleFactor),
+        },
       });
-      const meiMapSource = windowSources.find((source) => source.name === 'MeiMap');
+      const meiMapSource = windowSources.find((source) => source.id === mainWindow.getMediaSourceId());
       if (meiMapSource && !meiMapSource.thumbnail.isEmpty()) {
         fs.writeFileSync(path.join(outputDir, 'smoke-window.png'), meiMapSource.thumbnail.toPNG());
       }
@@ -474,10 +669,28 @@ async function runSmokeCapture() {
   }, 22000);
 }
 
-async function captureCurrentPage() {
+function geocodeCachePath() {
+  return path.join(app.getPath('userData'), 'geocode-cache.json');
+}
+
+function loadGeocodeCache() {
+  try {
+    return JSON.parse(fs.readFileSync(geocodeCachePath(), 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function saveGeocodeCache(cache) {
+  fs.mkdirSync(app.getPath('userData'), { recursive: true });
+  fs.writeFileSync(geocodeCachePath(), JSON.stringify(cache, null, 2), 'utf8');
+}
+
+async function captureWindowImage() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const bounds = mainWindow.getBounds();
   const scaleFactor = screen.getDisplayMatching(bounds).scaleFactor || 1;
+  const sourceId = mainWindow.getMediaSourceId().split(':').slice(0, 2).join(':');
   const sources = await desktopCapturer.getSources({
     types: ['window'],
     thumbnailSize: {
@@ -485,10 +698,15 @@ async function captureCurrentPage() {
       height: Math.round(bounds.height * scaleFactor),
     },
   });
-  const windowTitle = mainWindow.getTitle();
-  const source = sources.find((item) => item.name === windowTitle)
-    || sources.find((item) => item.name.includes('MeiMap'));
+  const source = sources.find((item) => item.id.split(':').slice(0, 2).join(':') === sourceId)
+    || (process.argv.includes('--smoke-test') ? sources.find((item) => item.name === 'MeiMap Test ' + process.pid) : null);
   if (!source || source.thumbnail.isEmpty()) throw new Error('无法捕获 MeiMap 窗口');
+  return source.thumbnail;
+}
+
+async function captureCurrentPage() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const screenshot = await captureWindowImage();
 
   const now = new Date();
   const stamp = [
@@ -505,7 +723,7 @@ async function captureCurrentPage() {
   const outputDirectory = configuredDirectory && fs.existsSync(configuredDirectory)
     ? configuredDirectory
     : app.getPath('desktop');
-  fs.writeFileSync(path.join(outputDirectory, fileName), source.thumbnail.toPNG());
+  fs.writeFileSync(path.join(outputDirectory, fileName), screenshot.toPNG());
   if (Notification.isSupported()) {
     new Notification({ title: 'MeiMap 截图已保存', body: path.join(outputDirectory, fileName) }).show();
   }
@@ -515,6 +733,9 @@ function setScreen(screenName) {
   currentScreen = screenName;
   mapView.setVisible(screenName === 'map');
   mainWindow.webContents.send('screen-changed', screenName);
+  if (screenName === 'map') {
+    mapView.webContents.executeJavaScript("window.dispatchEvent(new Event('resize'))").catch(() => {});
+  }
 }
 
 function mapUrlAtLocation() {
@@ -586,18 +807,29 @@ function mapRouteUrl(destination, waypoints) {
 
 function createWindow() {
   settings = loadSettings();
+  settings.displayMode = settings.displayMode === 'duo' ? 'duo' : 'phone';
+  if (process.argv.includes('--smoke-duo')) settings.displayMode = 'duo';
+  if (process.argv.includes('--smoke-phone')) settings.displayMode = 'phone';
+  if (process.argv.includes('--smoke-short-route')) {
+    settings.latitude = 31.2400;
+    settings.longitude = 121.4700;
+  } else if (process.argv.includes('--smoke-route')) {
+    settings.latitude = 45.7164315;
+    settings.longitude = 126.7546573;
+  }
 
   mainWindow = new BrowserWindow({
-    width: 430,
-    height: 880,
-    minWidth: 390,
-    minHeight: 720,
-    maxWidth: 520,
-    title: 'MeiMap',
+    width: settings.displayMode === 'duo' ? 890 : 430,
+    height: settings.displayMode === 'duo' ? 626 : 880,
+    minWidth: settings.displayMode === 'duo' ? 710 : 390,
+    minHeight: settings.displayMode === 'duo' ? 500 : 720,
+    maxWidth: settings.displayMode === 'duo' ? 1400 : 520,
+    title: process.argv.includes('--smoke-test') ? 'MeiMap Test ' + process.pid : 'MeiMap',
     frame: false,
     roundedCorners: false,
     backgroundColor: '#ffffff',
     webPreferences: {
+      backgroundThrottling: !process.argv.includes('--smoke-test'),
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
@@ -607,6 +839,8 @@ function createWindow() {
 
   mapView = new WebContentsView({
     webPreferences: {
+      backgroundThrottling: !process.argv.includes('--smoke-test'),
+      preload: path.join(__dirname, 'map-preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -642,6 +876,7 @@ function createWindow() {
   });
 
   mainWindow.on('resize', layoutMap);
+  if (process.argv.includes('--smoke-test')) mainWindow.on('page-title-updated', (event) => event.preventDefault());
   mainWindow.on('closed', () => {
     mainWindow = undefined;
     mapView = undefined;
@@ -652,7 +887,9 @@ function createWindow() {
     shell.openExternal(url);
     return { action: 'deny' };
   });
-  mapView.webContents.loadURL(mapUrlAtLocation());
+  mapView.webContents.loadURL(process.argv.includes('--smoke-route')
+    ? (process.argv.includes('--smoke-short-route') ? mapRouteUrl('31.2304,121.4737', ['31.2350,121.4660'])
+      : mapRouteUrl('哈尔滨市', ['天津市', '沈阳市'])) : mapUrlAtLocation());
 }
 
 app.whenReady().then(() => {
@@ -665,6 +902,20 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => app.quit());
 
 ipcMain.handle('get-settings', () => ({ ...settings }));
+
+ipcMain.on('open-panel-from-map', (event, name) => {
+  if (event.sender !== mapView?.webContents || !['settings', 'route', 'avatar'].includes(name)) return;
+  mainWindow.webContents.send('open-panel', name);
+});
+
+ipcMain.handle('set-display-mode', async (_event, mode) => {
+  if (mode !== 'phone' && mode !== 'duo') throw new Error('无效的显示模式');
+  settings = { ...settings, displayMode: mode };
+  saveSettings(settings);
+  applyDisplayMode();
+  await applyMapAppearance();
+  return { ...settings };
+});
 
 ipcMain.handle('save-location-input', async (_event, value) => {
   const input = String(value || '').trim();

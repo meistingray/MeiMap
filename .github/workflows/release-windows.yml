@@ -1,4 +1,4 @@
-name: Release MeiMap v0.2.1
+name: Release MeiMap v0.3.3
 
 on:
   push:
@@ -26,7 +26,11 @@ jobs:
         run: npm install
 
       - name: Check main process syntax
-        run: node --check src/main.cjs
+        run: |
+          node --check src/main.cjs
+          node --check src/preload.cjs
+          node --check src/map-preload.cjs
+          node --check src/renderer.js
 
       - name: Build portable executable
         run: npm run dist
@@ -38,4 +42,4 @@ jobs:
         run: |
           $asset = Get-ChildItem -Path dist -Filter *.exe | Select-Object -First 1
           if (-not $asset) { throw "Portable EXE was not generated." }
-          gh release create v0.2.1 "$($asset.FullName)" --target $env:GITHUB_SHA --title "MeiMap v0.2.1" --notes "途经点输入和提交上限提高到 24 个；Google Maps 网页实际接受的数量仍可能受平台限制。本版尚未加入 iPhone Duo 显示模式。" --latest
+          gh release create v0.3.3 "$($asset.FullName)" --target $env:GITHUB_SHA --title "MeiMap v0.3.3" --notes "新增收藏页的手机竖屏／Duo 展开横屏切换；地图铺满窗口，采用浮动导航与模拟状态图形；修复搜索框外围白底；统一隐藏横竖屏路线设置、交通方式、到达时间、开始按钮和推广遮罩，保留地图与驾车路线。已验证长短路线场景。Duo 图形为模拟绘制。" --latest

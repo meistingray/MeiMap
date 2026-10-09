@@ -8,6 +8,49 @@ const screens = {
 const tabs = [...document.querySelectorAll('.tabbar button')];
 const locationInput = document.querySelector('#location-input');
 const message = document.querySelector('#settings-message');
+window.meiMap.onOpenPanel((name) => {
+  const tab = { settings: '#tab-settings', route: '#tab-route', avatar: '#tab-avatar' }[name];
+  if (tab) document.querySelector(tab).click();
+});
+let displayedTime = '';
+
+function updateDisplayMode(mode) {
+  document.body.classList.toggle('duo', mode === 'duo');
+  for (const value of ['phone', 'duo']) {
+    document.querySelector(`#mode-${value}`).setAttribute('aria-pressed', String(mode === value));
+  }
+}
+
+function syncStatus(current) {
+  displayedTime = current.timeOverride || '';
+  updateClock();
+  const level = current.batteryLevel ?? 76;
+  document.querySelector('.battery-svg rect:nth-child(2)').setAttribute('width', String(19.5 * level / 100));
+  document.querySelector('.battery-svg').style.color = level <= 20 ? '#ff3b30' : '';
+  document.querySelector('.duo-battery-level').setAttribute('stroke-dasharray', `${level} 100`);
+  document.querySelector('.duo-battery-level').style.color = level <= 20 ? '#ff3b30' : '';
+}
+
+window.meiMap.onDisplayModeChanged(updateDisplayMode);
+window.meiMap.getSettings().then((current) => {
+  updateDisplayMode(current.displayMode || 'phone');
+  syncStatus(current);
+});
+
+for (const mode of ['phone', 'duo']) {
+  document.querySelector(`#mode-${mode}`).addEventListener('click', async () => {
+    const output = document.querySelector('#mode-message');
+    try {
+      const current = await window.meiMap.setDisplayMode(mode);
+      updateDisplayMode(current.displayMode);
+      output.textContent = '已切换，点击探索查看地图';
+      output.classList.remove('error');
+    } catch (error) {
+      output.textContent = error.message;
+      output.classList.add('error');
+    }
+  });
+}
 
 function showScreenshotDirectory(directory) {
   document.querySelector('#screenshot-directory').textContent = directory || '桌面（默认）';
@@ -213,10 +256,11 @@ document.querySelector('#display-settings-form').addEventListener('submit', asyn
   displayMessage.classList.remove('error');
   displayMessage.textContent = '正在保存…';
   try {
-    await window.meiMap.saveSettings({
+    const saved = await window.meiMap.saveSettings({
       timeOverride: document.querySelector('#display-time').value,
       batteryLevel: document.querySelector('#battery-level').value,
     });
+    syncStatus(saved);
     displayMessage.textContent = '显示设置已应用';
   } catch (error) {
     displayMessage.classList.add('error');
@@ -239,7 +283,7 @@ window.meiMap.onMapError((error) => {
 });
 
 function updateClock() {
-  document.querySelector('#clock').textContent = new Intl.DateTimeFormat('zh-CN', {
+  document.querySelector('#clock').textContent = displayedTime || new Intl.DateTimeFormat('zh-CN', {
     hour: '2-digit', minute: '2-digit', hour12: false,
   }).format(new Date());
 }

@@ -13,6 +13,8 @@ MeiMap 是一款供个人使用的 Windows 地图展示应用。它在紧凑的 
 ## 功能
 
 - iPhone 风格的紧凑 Windows 界面
+- 在“收藏”页切换手机竖屏与 Duo 展开横屏，并记住选择
+- Duo 模式采用浮动导航与模拟状态指示器；路线页隐藏设置和推广面板
 - 自定义模拟位置
   - 直接输入地点或地址
   - 支持“纬度, 经度”，例如 `39.212387, 133.970045`
@@ -87,6 +89,8 @@ Download the latest Windows Portable EXE from [GitHub Releases](https://github.c
 ## Features
 
 - Compact, iPhone-inspired Windows interface
+- Switch between phone portrait and Duo unfolded landscape on the Saved page; the selection is remembered
+- Duo mode uses floating navigation and simulated status graphics; route settings and promotional panels are hidden
 - Configurable simulated location
   - Enter a place name or address
   - Enter coordinates as `latitude, longitude`, for example `39.212387, 133.970045`

@@ -9,6 +9,7 @@
   </head>
   <body>
     <header class="statusbar">
+      <svg class="duo-status" viewBox="0 0 44 44" aria-label="模拟网络信号和电量"><path d="M7.28 30.5A17 17 0 1 1 36.72 30.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" opacity=".2"/><path class="duo-battery-level" d="M7.28 30.5A17 17 0 1 1 36.72 30.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" pathLength="100" stroke-dasharray="76 100"/><g fill="currentColor"><circle cx="12" cy="35.5" r="1.8"/><circle cx="18.5" cy="38.4" r="1.8"/><circle cx="25.5" cy="38.4" r="1.8"/><circle cx="32" cy="35.5" r="1.8"/></g><path d="M14 20Q22 13.5 30 20M18 23Q22 19.5 26 23" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M20.2 26Q22 24.6 23.8 26L22 28.3Z" fill="currentColor"/></svg>
       <div class="status-left">
         <span class="clock" id="clock">09:41</span>
       </div>
@@ -39,6 +40,14 @@
           <button data-location="22.3193, 114.1694">香港</button>
           <button data-location="31.2304, 121.4737">上海</button>
           <button data-location="39.9042, 116.4074">北京</button>
+        </div>
+        <div class="card mode-card">
+          <h2>显示模式</h2>
+          <div class="mode-options" role="group" aria-label="显示模式">
+            <button id="mode-phone" type="button" aria-pressed="true">手机竖屏</button>
+            <button id="mode-duo" type="button" aria-pressed="false">Duo 展开横屏</button>
+          </div>
+          <p id="mode-message" class="message"></p>
         </div>
         <div class="app-actions">
           <button id="minimize">最小化窗口</button>
